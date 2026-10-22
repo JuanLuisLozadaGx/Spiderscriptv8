@@ -1,18 +1,17 @@
 --[[
-	SPIDER V11.9 · TODO EL SISTEMA EN UN SOLO SCRIPT COMBINADO
+	SPIDER V12.0 · TODO EL SISTEMA EN UN SOLO SCRIPT COMBINADO
 	Servidor + Cliente en el mismo archivo. Se adapta solo.
 
-	LO NUEVO DE V11.9 (le arranca la pierna de verdad):
-	  Ctrl+G agarra de la pierna y levanta al cuerpo DELANTE de ti:
-	  flota horizontal a la altura del pecho, separado (~5.5 studs)
-	  y con una leve oscilacion. Al agarrarlo le ARRANCA la pierna
-	  agarrada: se rompen las uniones de la cadera (Motor6D/Weld
-	  clasicos o AnimationConstraint/BallSocketConstraint del rig
-	  AC), la pierna se separa, cae al vacio y se destruye. El
-	  cuerpo queda sin ella y puede seguir caminando. Al respawnear
-	  vuelve completa. En tu juego lo ven todos; en Da Hood el clon
-	  se arranca y el cuerpo real se queda con la pierna oculta
-	  (solo para ti) para que se vea sin ella.
+	LO NUEVO DE V12.0 (controlar el cuerpo herido):
+	  G agarra a la persona herida/derribada (K.O., roja, en el piso)
+	  mas cercana. Tu avatar real se va debajo del mapa (mirando
+	  arriba) y tu camara pasa al cuerpo agarrado. Con WASD caminas
+	  ESE cuerpo, con Espacio salta y hace sus animaciones. G otra vez
+	  lo suelta: tu cuerpo vuelve arriba, donde soltaste el cuerpo, y
+	  la camara vuelve a la normalidad. Si el herido se cura del todo
+	  (o deja de estar K.O.), se suelta solo.
+	  Se elimino por completo el sistema viejo de arrancar la pierna
+	  y hacer flotar el cuerpo.
 
 	LO NUEVO DE V11.7 (sigue igual):
 	  ARMAS NUEVAS (REVOLVER Y ESCOPETAS): el juego las dispara en
@@ -38,41 +37,37 @@
 	          hacia el. Q otra vez lo quita; sin nadie bajo el mouse
 	          no hace nada; sin lock, balas normales.
 	  X+pared  TREPAR (antes era Shift). Shift queda libre.
-	  Ctrl+G  agarra de la pierna al cuerpo/persona mas cercana que
-	          este debajo de ti: lo levanta DELANTE de ti, flotando
-	          horizontal a la altura del pecho (~5.5 studs, con una
-	          leve oscilacion) y le ARRANCA la pierna agarrada (la
-	          derecha; si no existe, la izquierda). La pierna se
-	          separa, cae al vacio y desaparece; el cuerpo queda sin
-	          ella y puede caminar. G lo suelta.
+	  G       CONTROL: agarra de la pierna al herido/K.O. mas cercano
+	          y toma su cuerpo. WASD lo mueve, Espacio salta, G suelta.
+	          Si se cura del todo, se suelta solo.
 	  J       ESP: contorno blanco + nombre de usuario encima de TODOS
 	          los jugadores, visible a traves de las paredes. El texto
 	          es un poco mas pequeno que en V11. J otra vez lo apaga.
-	  Z       ELIMINADO: no se separan brazos/piernas al azar. La
-	          pierna se arranca SOLO al agarrar con Ctrl+G.
+	  Z       ELIMINADO: no se separan brazos/piernas al azar.
 
 	DOS MODOS (importante):
-	  * EN TU JUEGO (con servidor): el agarre se replica de verdad:
-	    el servidor mueve a la victima, le arranca la pierna (todos
-	    la ven caer) y el cuerpo queda sin ella hasta que respawnee.
-	    El LOCK apunta por RE_Lock (servidor propio), solo dueño.
-	  * EN DA HOOD / JUEGOS AJENOS (executor): el agarre es LOCAL
-	    (oculta el cuerpo real y muestra un clon delante de ti, a la
-	    altura del pecho y con la pierna arrancada; solo lo ves tu).
-	    Al soltar, el cuerpo real se queda con la pierna oculta (solo
-	    para ti) y puede caminar normal. El lock muestra contorno +
-	    linea Y ADEMAS apunta las balas (via el remoto del propio
-	    juego) cuando el juego usa el sistema de armas de Da Hood.
-	    Si un juego no lo usa, el lock ahi queda solo visual.
+	  * EN TU JUEGO (con servidor): el servidor crea un cuerpo nuevo
+	    con las articulaciones intactas en el sitio del herido. Todos
+	    ven ESE cuerpo caminando/saltando; el herido real se oculta y
+	    se inmoviliza mientras lo controlas. Al soltar, el herido
+	    vuelve a su sitio y tu avatar aparece arriba. El LOCK apunta
+	    por RE_Lock (servidor propio), solo dueño.
+	  * EN DA HOOD / JUEGOS AJENOS (executor): el cuerpo real de otra
+	    persona no se puede mover desde el cliente. Se crea un clon
+	    local con el mismo aspecto; solo TU lo ves y lo controlas. El
+	    lock muestra contorno + linea Y ADEMAS apunta las balas (via
+	    el remoto del propio juego) cuando el juego usa el sistema de
+	    armas de Da Hood. Si un juego no lo usa, el lock ahi queda
+	    solo visual.
 
 	INSTALACION PARA REPLICAR (tu juego):
 	  1) ServerScriptService > Insert Object > "Script" (NO LocalScript)
 	     llamado SpideyV11 y pega ESTE archivo completo.
 	  2) StarterPlayer > StarterPlayerScripts > "LocalScript"
 	     llamado SpideyClienteV11 y pega ESTE MISMO archivo.
-	  3) Publica. El servidor crea RE_Cuerpo y RE_Lock. El agarre se
+	  3) Publica. El servidor crea RE_Cuerpo y RE_Lock. El control se
 	     replica y el LOCK del dueño dirige las balas. TODOS ven el
-	     agarre; el LOCK solo lo usa el dueño del place.
+	     cuerpo controlado; el LOCK solo lo usa el dueño del place.
 	  Si falta el Script de servidor, el cliente entra en MODO LOCAL
 	  automaticamente (Da Hood / executor) y no rompe nada.
 
@@ -109,7 +104,9 @@
 	  secuencia para ver EXACTAMENTE lo que ven los demas.
 	  "LOCK" lockea el modelo con Humanoid mas cercano (util para
 	  probar el aim sin mover el mouse). "UNLOCK" lo quita.
+	  "GRAB" agarra/suelta el cuerpo herido mas cercano.
 ]]
+
 if game:GetService("RunService"):IsServer() then
 --=================================================================
 --  MITAD SERVIDOR: validacion + difusion + instalacion del cliente
@@ -143,10 +140,10 @@ local RE_Cuerpo = remoto("RE_Cuerpo")
 local RE_Lock = remoto("RE_Lock")
 
 -----------------------------------------------------------------
--- V11.7 · LOCK (Q) DEL DUEÑO
+-- V11.7 Â· LOCK (Q) DEL DUEÃO
 -- El cliente manda el modelo objetivo. El servidor sobreescribe
 -- BodyEffects.MousePos: las armas de Da Hood disparan a ese punto,
--- aunque el dueño apunte al piso. Solo lo puede usar el dueño del
+-- aunque el dueÃ±o apunte al piso. Solo lo puede usar el dueÃ±o del
 -- place (o el nombre/ID configurado abajo).
 -----------------------------------------------------------------
 local PROPIETARIOS_NOMBRES = { ["jlozadac"] = true }
@@ -346,7 +343,7 @@ local CFG = {
 	ANIM_COOLDOWN = 0.12,
 	VEL_MAX = 150,
 	VEL_HARD = 165,
-	DURACION_MAX = 30, -- si el cliente no manda STOP, se limpia la telaraña
+	DURACION_MAX = 30, -- si el cliente no manda STOP, se limpia la telaraÃ±a
 	TOLERANCIA_SUPERFICIE = 5.5,
 }
 
@@ -358,7 +355,7 @@ local activo = {} -- [player] = { nombre, inicio, creado, punto }
 ----------------------------------------------------------------
 local function configurarTool(tool)
 	tool.Name = "Spider"
-	tool.ToolTip = "Equípalo y mantén clic izquierdo para lanzar la telaraña"
+	tool.ToolTip = "EquÃ­palo y mantÃ©n clic izquierdo para lanzar la telaraÃ±a"
 	tool.RequiresHandle = false
 	tool.CanBeDropped = false
 	tool.ManualActivationOnly = true
@@ -446,7 +443,7 @@ RE_Web.OnServerEvent:Connect(function(player, accion, punto, normal, solido, nom
 		return
 	end
 	if activo[player] then
-		-- Un jugador no puede tener dos telarañas a la vez.
+		-- Un jugador no puede tener dos telaraÃ±as a la vez.
 		denegar(player)
 		return
 	end
@@ -474,7 +471,7 @@ RE_Web.OnServerEvent:Connect(function(player, accion, punto, normal, solido, nom
 
 	if hit then
 		-- El cliente apunta 1.3 studs fuera de la superficie; se tolera
-		-- esa diferencia. Si el punto está lejos del impacto, se rechaza.
+		-- esa diferencia. Si el punto estÃ¡ lejos del impacto, se rechaza.
 		if (hit.Position - punto).Magnitude > CFG.TOLERANCIA_SUPERFICIE then
 			denegar(player)
 			return
@@ -482,9 +479,9 @@ RE_Web.OnServerEvent:Connect(function(player, accion, punto, normal, solido, nom
 		punto = hit.Position + hit.Normal * 1.3
 		normal = hit.Normal
 	end
-	-- Si el servidor no ve la superficie que vio la cámara del cliente
-	-- (los orígenes del rayo son distintos), se acepta el punto del
-	-- cliente: la distancia ya quedó validada arriba.
+	-- Si el servidor no ve la superficie que vio la cÃ¡mara del cliente
+	-- (los orÃ­genes del rayo son distintos), se acepta el punto del
+	-- cliente: la distancia ya quedÃ³ validada arriba.
 
 	limitarVelocidad(hrp)
 
@@ -507,7 +504,7 @@ RE_Anim.OnServerEvent:Connect(function(player, accion)
 end)
 
 ----------------------------------------------------------------
--- LÍMITES Y LIMPIEZA
+-- LÃMITES Y LIMPIEZA
 ----------------------------------------------------------------
 local acumulador = 0
 RunService.Heartbeat:Connect(function(dt)
@@ -527,7 +524,7 @@ RunService.Heartbeat:Connect(function(dt)
 		end
 	end
 
-	-- Auto-limpieza de telarañas huérfanas.
+	-- Auto-limpieza de telaraÃ±as huÃ©rfanas.
 	local ahora = os.clock()
 	for player, datos in pairs(activo) do
 		if not player.Parent or not player.Character then
@@ -564,39 +561,67 @@ Players.PlayerAdded:Connect(function(player)
 end)
 
 -----------------------------------------------------------------
--- V11.9 · CUERPO: agarre REPLICADO POR EL SERVIDOR
--- Todo lo que pasa aqui lo ven TODOS los clientes y la victima lo
--- siente en su propio personaje. Es la unica forma real: un cliente
--- no puede modificar el cuerpo de otra persona en el servidor.
--- En V11.9 el cuerpo flota al frente, a la altura del pecho, y se le
--- ARRANCA la pierna agarrada: las uniones de la cadera se destruyen,
--- la pierna cae al vacio y el cuerpo sigue caminando sin ella.
+-- V12.0 · CONTROL DEL CUERPO (G)
+-- Agarramos a la persona herida/derribada (K.O. de Da Hood, roja y
+-- en el piso) y controlamos su cuerpo. El avatar del que agarra se
+-- va debajo del mapa; la camara del cliente pasa al cuerpo agarrado.
+-- En el servidor el cuerpo controlado es un muñeco nuevo con las
+-- articulaciones intactas (el cuerpo K.O. real las tiene rotas), asi
+-- que puede caminar, saltar y hacer animaciones de verdad.
 -----------------------------------------------------------------
-local RADIO_CARGA = 10
-local DIST_CARGA = 5.5
-local cargas = {}       -- [modelo victima] = datos de la carga
-local cargaDe = {}      -- [player agarrador] = datos de la carga
+local RADIO_CONTROL = 10
+local DIST_ABAJO = 13
+local controles = {}       -- [player] = datos del control
+local controladoPor = {}   -- [modelo victima] = player
 local ultimoIntento = {}
 
 local function hrpDe(modelo)
 	return modelo and modelo:FindFirstChild("HumanoidRootPart")
 end
 
+local function humDe(modelo)
+	return modelo and modelo:FindFirstChildOfClass("Humanoid")
+end
+
+local function valorKO(modelo)
+	local be = modelo and modelo:FindFirstChild("BodyEffects")
+	local ko = be and be:FindFirstChild("K.O")
+	if ko and ko:IsA("BoolValue") then return ko end
+	return nil
+end
+
+-- Herido = K.O. activo, salud muy baja o salud incompleta y el
+-- cuerpo esta a la altura del piso (no una persona sana de pie).
+local function estaHerido(modelo, base)
+	if not modelo or modelo == base or not modelo.Parent then return false end
+	if modelo:GetAttribute("SpideyPuppet") then return false end
+	local h = humDe(modelo)
+	local r = hrpDe(modelo)
+	if not h or not r or h.Health <= 0 then return false end
+	local ko = valorKO(modelo)
+	if ko and ko.Value then return true end
+	if h.Health <= 0.5 then return true end
+	if h.Health < h.MaxHealth - 0.5 then
+		local br = base and hrpDe(base)
+		if not br or r.Position.Y <= br.Position.Y + 1.5 then return true end
+	end
+	return false
+end
+
 local function buscarVictima(grabador)
 	local p = grabador.Character
-	local h = p and p:FindFirstChildOfClass("Humanoid")
 	local r = hrpDe(p)
-	if not (p and h and h.Health > 0 and r) then return nil end
+	if not (p and humDe(p) and r) then return nil end
 	local p0 = r.Position
 	local mejor, mejorPuntaje = nil, nil
 	local function probar(m)
-		if not m or m == p or not m.Parent or cargas[m] then return end
-		local mh = m:FindFirstChildOfClass("Humanoid")
+		if not m or m == p or not m.Parent or controladoPor[m] then return end
+		if not estaHerido(m, p) then return end
 		local mr = hrpDe(m)
-		if not mh or not mr then return end
+		if not mr then return end
 		local d = mr.Position - p0
 		local horiz = Vector3.new(d.X, 0, d.Z).Magnitude
-		if horiz > RADIO_CARGA or d.Y > 1.0 or d.Y < -9 then return end
+		if horiz > RADIO_CONTROL or d.Y > 2.0 or d.Y < -10 then return end
 		local puntaje = horiz + math.abs(d.Y + 2) * 0.35
 		if Players:GetPlayerFromCharacter(m) then puntaje -= 0.8 end
 		if not mejorPuntaje or puntaje < mejorPuntaje then
@@ -614,254 +639,585 @@ local function buscarVictima(grabador)
 	return mejor
 end
 
--- Pierna agarrada: se ARRANCA la derecha (o la izquierda si no hay).
--- Se destruyen las uniones de la cadera (Motor6D/Weld clasicos o las
--- nuevas AnimationConstraint/BallSocketConstraint del rig AC), se
--- desancla la pierna y se lanza al vacio; a los 3 s se destruye. El
--- cuerpo queda sin ella y puede seguir caminando. Al respawnear vuelve.
-local NOMBRES_PIERNA_DERECHA = { "RightUpperLeg", "RightLowerLeg", "RightFoot", "Right Leg" }
-local NOMBRES_PIERNA_IZQUIERDA = { "LeftUpperLeg", "LeftLowerLeg", "LeftFoot", "Left Leg" }
-
-local function partesPierna(modelo)
-	local lista = {}
-	for _, n in ipairs(NOMBRES_PIERNA_DERECHA) do
-		local p = modelo:FindFirstChild(n)
-		if p and p:IsA("BasePart") then table.insert(lista, p) end
-	end
-	if #lista > 0 then return lista, "derecha" end
-	for _, n in ipairs(NOMBRES_PIERNA_IZQUIERDA) do
-		local p = modelo:FindFirstChild(n)
-		if p and p:IsA("BasePart") then table.insert(lista, p) end
-	end
-	return lista, "izquierda"
-end
-
-local function arrancarPierna(modelo)
-	local partes, lado = partesPierna(modelo)
-	if #partes == 0 then return nil end
-	local set = {}
-	for _, p in ipairs(partes) do set[p] = true end
-	local uniones = {}
+-- Quita del muñeco todo lo que pueda ejecutar scripts del juego,
+-- herramientas o efectos que no queremos duplicados.
+local function limpiarPuppet(modelo)
+	local borrar = {}
 	for _, d in ipairs(modelo:GetDescendants()) do
-		local esUnion = d:IsA("Motor6D") or d:IsA("Weld") or d:IsA("WeldConstraint")
-			or d:IsA("AnimationConstraint") or d:IsA("BallSocketConstraint")
-			or d:IsA("HingeConstraint") or d:IsA("SocketConstraint")
-		if esUnion then
-			local dentro, fora = false, false
-			local p0, p1 = nil, nil
-			if d:IsA("JointInstance") or d:IsA("WeldConstraint") then
-				p0, p1 = d.Part0, d.Part1
-			end
-			if p0 or p1 then
-				if p0 then if set[p0] then dentro = true else fora = true end end
-				if p1 then if set[p1] then dentro = true else fora = true end end
-			else
-				local ok, a0, a1 = pcall(function() return d.Attachment0, d.Attachment1 end)
-				if ok then
-					if a0 and a0.Parent then if set[a0.Parent] then dentro = true else fora = true end end
-					if a1 and a1.Parent then if set[a1.Parent] then dentro = true else fora = true end end
-				end
-			end
-			if dentro and fora then table.insert(uniones, d) end
+		if d:IsA("BaseScript") or d:IsA("Tool") or d:IsA("Highlight")
+			or d:IsA("ForceField") or d:IsA("BillboardGui") or d:IsA("SurfaceGui")
+			or d:IsA("ParticleEmitter") or d:IsA("Trail") or d:IsA("Beam")
+			or d:IsA("Fire") or d:IsA("Smoke") or d:IsA("Sparkles")
+			or d:IsA("Camera") or d.Name == "BodyEffects" then
+			table.insert(borrar, d)
 		end
 	end
-	if #uniones == 0 then
-		-- Respaldo para rigs donde la cadera no expone los attachments.
-		for _, d in ipairs(modelo:GetDescendants()) do
-			if d:IsA("Motor6D") or d:IsA("Weld") or d:IsA("AnimationConstraint") or d:IsA("BallSocketConstraint") then
-				local n = string.lower(d.Name)
-				if string.find(n, "righthip") or string.find(n, "right hip") then
-					table.insert(uniones, d)
-				end
-			end
+	for _, d in ipairs(borrar) do
+		if d and d.Parent then d:Destroy() end
+	end
+end
+
+-- Si el herido no tiene HumanoidDescription (NPC), el muñeco sale
+-- del cuerpo del que agarra; le copiamos ropa, colores y accesorios
+-- para que se parezca al herido.
+local function copiarAspecto(destino, victima)
+	local dh = humDe(destino)
+	if not dh then return end
+	for _, d in ipairs(destino:GetChildren()) do
+		if d:IsA("Accessory") then d:Destroy() end
+	end
+	for _, clase in ipairs({ "Shirt", "Pants", "ShirtGraphic" }) do
+		local viejo = destino:FindFirstChildOfClass(clase)
+		if viejo then viejo:Destroy() end
+		local nuevo = victima:FindFirstChildOfClass(clase)
+		if nuevo then
+			local ok, clon = pcall(function() return nuevo:Clone() end)
+			if ok and clon then clon.Parent = destino end
 		end
 	end
-	for _, u in ipairs(uniones) do
-		u:Destroy()
-	end
-	local escombros = workspace:FindFirstChild("SpideyEscombros")
-	if not escombros then
-		escombros = Instance.new("Folder")
-		escombros.Name = "SpideyEscombros"
-		escombros.Parent = workspace
-	end
-	for _, p in ipairs(partes) do
-		p.Anchored = false
-		p.CanCollide = false
-		p.CanQuery = false
-		p.CanTouch = false
-		p.Parent = escombros
-	end
-	local raiz = partes[1]
-	if raiz then
-		raiz.AssemblyLinearVelocity = raiz.AssemblyLinearVelocity + Vector3.new(0, -100, 0) + raiz.CFrame.LookVector * 10
-	end
-	task.delay(3, function()
-		for _, p in ipairs(partes) do
-			if p and p.Parent then p:Destroy() end
+	local vb = victima:FindFirstChildOfClass("BodyColors")
+	local db = destino:FindFirstChildOfClass("BodyColors")
+	if vb and db then
+		for _, prop in ipairs({ "HeadColor", "LeftArmColor", "RightArmColor", "LeftLegColor", "RightLegColor", "TorsoColor" }) do
+			pcall(function() db[prop] = vb[prop] end)
 		end
-	end)
-	return lado
-end
-
--- Pose de la carga: horizontal, a la altura del pecho, 5.5 studs al
--- frente y con una oscilacion suave para que se vea flotando.
-local function poseCarga(raiz, t)
-	local mirar = raiz.CFrame.LookVector
-	local plano = Vector3.new(mirar.X, 0, mirar.Z)
-	if plano.Magnitude < 0.001 then plano = Vector3.new(0, 0, -1) end
-	local arriba = raiz.Position + Vector3.new(0, 1.4, 0)
-	local base = CFrame.lookAt(arriba, arriba + plano.Unit * 10)
-	local flotar = math.sin(t * 1.6) * 0.12
-	local balanceo = math.sin(t * 1.1) * math.rad(2.5)
-	return base * CFrame.new(0, flotar, -DIST_CARGA) * CFrame.Angles(math.rad(-90), 0, math.rad(6) + balanceo)
-end
-
-local function restaurarCarga(e)
-	local h = e.humanoide
-	local r = e.raiz
-	if r and r.Parent then
-		r.Anchored = e.anclado
 	end
-	if h and h.Parent then
-		h.PlatformStand = e.plataforma
-		h.AutoRotate = e.autogiro
-		h.WalkSpeed = e.velocidad
-		h.JumpPower = e.salto
-		h.UseJumpPower = e.usaSalto
-	end
-	if e.modelo and e.modelo.Parent then
-		e.modelo:SetAttribute("SpideyCargadoPor", nil)
-	end
-	if e.grabador and e.grabador.Parent then
-		e.grabador:SetAttribute("SpideyAgarrando", nil)
+	for _, acc in ipairs(victima:GetChildren()) do
+		if acc:IsA("Accessory") then
+			pcall(function() dh:AddAccessory(acc:Clone()) end)
+		end
 	end
 end
 
-local function soltar(grabador, motivo)
-	local e = cargaDe[grabador]
-	if not e then return end
-	cargaDe[grabador] = nil
-	cargas[e.modelo] = nil
-	restaurarCarga(e)
-	if grabador and grabador.Parent then
-		RE_Cuerpo:FireClient(grabador, "RELEASE")
+-- Postura del muñeco: aparece de pie sobre el piso, mirando al que
+-- agarra (o hacia donde miraba el herido si no hay referencia).
+local function posicionPuppet(victima, grabador, puppet)
+	local vr = hrpDe(victima)
+	local gr = grabador and hrpDe(grabador.Character)
+	local vpos = (vr and vr.Position) or Vector3.zero
+	local base = vpos + Vector3.new(0, 6, 0)
+	-- No poner el muñeco encima del herido: sus piernas se enredan
+	-- con el cuerpo tirado y el Humanoid se queda en Climbing. Lo
+	-- colocamos 2 studs hacia el que agarra, en piso libre.
+	if gr then
+		local d = gr.Position - vpos
+		d = Vector3.new(d.X, 0, d.Z)
+		if d.Magnitude > 0.1 then
+			base = base + d.Unit * 2.0
+		end
 	end
-	print("[Spidey V11.9] agarre soltado para todos (" .. tostring(motivo or "manual") .. ")")
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { victima, puppet }
+	local hit = workspace:Raycast(base, Vector3.new(0, -40, 0), params)
+	local y = hit and hit.Position.Y or (vr and vr.Position.Y or base.Y)
+	local pos = Vector3.new(base.X, y + 3.5, base.Z)
+	local look = gr and (gr.Position - pos) or (vr and vr.CFrame.LookVector) or Vector3.new(0, 0, -1)
+	local plano = Vector3.new(look.X, 0, look.Z)
+	if plano.Magnitude < 0.01 then plano = Vector3.new(0, 0, -1) end
+	return CFrame.lookAt(pos, pos + plano.Unit)
 end
 
-local function iniciarCarga(grabador, modelo)
-	local h = modelo:FindFirstChildOfClass("Humanoid")
+local IDS_ANIM_R15 = {
+	idle = "rbxassetid://507766666",
+	walk = "rbxassetid://507777826",
+	run = "rbxassetid://507767714",
+	jump = "rbxassetid://507765000",
+	fall = "rbxassetid://507767968",
+}
+
+local function idsAnimacion(victima, puppet)
+	local h = humDe(puppet)
+	if not h then return {} end
+	if h.RigType == Enum.HumanoidRigType.R15 then
+		return IDS_ANIM_R15
+	end
+	local ids = {}
+	local an = victima and victima:FindFirstChild("Animate")
+	if an then
+		for _, nombre in ipairs({ "idle", "walk", "run", "jump", "fall" }) do
+			local cont = an:FindFirstChild(nombre)
+			local anim = cont and cont:FindFirstChildWhichIsA("Animation", true)
+			if anim and anim.AnimationId ~= "" then ids[nombre] = anim.AnimationId end
+		end
+	end
+	return ids
+end
+
+local function cargarTracks(puppet, victima)
+	local h = humDe(puppet)
+	if not h then return {} end
+	local animator = h:FindFirstChildOfClass("Animator")
+	if not animator then
+		animator = Instance.new("Animator")
+		animator.Parent = h
+	end
+	local tracks = {}
+	for nombre, id in pairs(idsAnimacion(victima, puppet)) do
+		local a = Instance.new("Animation")
+		a.Name = "SpideyAnim_" .. nombre
+		a.AnimationId = id
+		local ok, tr = pcall(function() return animator:LoadAnimation(a) end)
+		if ok and tr then
+			pcall(function()
+				tr.Looped = (nombre == "idle" or nombre == "walk" or nombre == "run")
+			end)
+			tracks[nombre] = tr
+		end
+		a:Destroy()
+	end
+	return tracks
+end
+
+local function actualizarAnimaciones(e)
+	local h = e.puppetHum
+	if not h or not h.Parent then return end
+	local estado = h:GetState()
+	local moviendo = e.mov and e.mov.Magnitude > 0.08
+	local quiero = "idle"
+	if estado == Enum.HumanoidStateType.Jumping then
+		quiero = "jump"
+	elseif estado == Enum.HumanoidStateType.Freefall then
+		quiero = "fall"
+	elseif moviendo then
+		quiero = e.tracks and e.tracks.run and "run" or "walk"
+	end
+	if e.animActual == quiero then return end
+	for n, tr in pairs(e.tracks or {}) do
+		if n == quiero then
+			if not tr.IsPlaying then pcall(function() tr:Play(0.12) end) end
+		else
+			if tr.IsPlaying then pcall(function() tr:Stop(0.15) end) end
+		end
+	end
+	e.animActual = quiero
+end
+
+-- Oculta el cuerpo real del herido mientras el muñeco lo representa.
+-- Guarda TODO para devolverlo tal cual al soltar.
+local function ocultarVictima(modelo)
+	local datos = { partes = {}, decals = {}, efectos = {}, guis = {}, ropa = {}, highlights = {} }
+	local h = humDe(modelo)
+	if h then
+		datos.hum = h
+		datos.dist = h.DisplayDistanceType
+		h.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+		datos.walk = h.WalkSpeed
+		datos.jump = h.JumpPower
+		datos.use = h.UseJumpPower
+		datos.platform = h.PlatformStand
+		datos.auto = h.AutoRotate
+		h.WalkSpeed = 0
+		h.JumpPower = 0
+		h.UseJumpPower = true
+		h.PlatformStand = true
+		h.AutoRotate = false
+	end
 	local r = hrpDe(modelo)
-	if not h or not r then return end
-	local e = {
-		grabador = grabador,
-		modelo = modelo,
-		humanoide = h,
-		raiz = r,
+	if r then
+		datos.anclado = r.Anchored
+		r.Anchored = true
+	end
+	for _, d in ipairs(modelo:GetDescendants()) do
+		if d:IsA("BasePart") then
+			datos.partes[d] = { d.Transparency, d.LocalTransparencyModifier }
+			d.Transparency = 1
+			d.LocalTransparencyModifier = 1
+		elseif d:IsA("Decal") or d:IsA("Texture") then
+			datos.decals[d] = d.Transparency
+			d.Transparency = 1
+		elseif d:IsA("ParticleEmitter") or d:IsA("Trail") or d:IsA("Beam") or d:IsA("Fire") or d:IsA("Smoke") or d:IsA("Sparkles") then
+			datos.efectos[d] = d.Enabled
+			d.Enabled = false
+		elseif d:IsA("BillboardGui") or d:IsA("SurfaceGui") then
+			datos.guis[d] = d.Enabled
+			d.Enabled = false
+		elseif d:IsA("Shirt") or d:IsA("Pants") or d:IsA("ShirtGraphic") then
+			datos.ropa[d] = d.Parent
+			d.Parent = nil
+		elseif d:IsA("Highlight") then
+			datos.highlights[d] = d.Enabled
+			d.Enabled = false
+		end
+	end
+	return datos
+end
+
+local function restaurarVictima(e, cframe)
+	local d = e.datosV
+	local m = e.victima
+	if not d or not m or not m.Parent then return end
+	if cframe and e.victimaHRP and e.victimaHRP.Parent then
+		local pos = cframe.Position
+		local y = pos.Y
+		if e.estabaKO then
+			-- Dejar el cuerpo tirado sobre el piso, no flotando a la
+			-- altura de la cintura del muñeco.
+			local params = RaycastParams.new()
+			params.FilterType = Enum.RaycastFilterType.Exclude
+			params.FilterDescendantsInstances = { m, e.puppet }
+			local hit = workspace:Raycast(pos + Vector3.new(0, 4, 0), Vector3.new(0, -20, 0), params)
+			if hit then y = hit.Position.Y + 1.5 end
+		end
+		e.victimaHRP.CFrame = CFrame.new(Vector3.new(pos.X, y, pos.Z)) * cframe.Rotation
+	end
+	for p, t in pairs(d.partes) do
+		if p and p.Parent then
+			p.Transparency = t[1]
+			p.LocalTransparencyModifier = t[2]
+		end
+	end
+	for d0, t in pairs(d.decals) do
+		if d0 and d0.Parent then d0.Transparency = t end
+	end
+	for d0, t in pairs(d.efectos) do
+		if d0 and d0.Parent then d0.Enabled = t end
+	end
+	for d0, t in pairs(d.guis) do
+		if d0 and d0.Parent then d0.Enabled = t end
+	end
+	for d0, t in pairs(d.highlights) do
+		if d0 and d0.Parent then d0.Enabled = t end
+	end
+	for d0 in pairs(d.ropa) do
+		if d0 and not d0.Parent then d0.Parent = m end
+	end
+	if d.hum and d.hum.Parent then
+		d.hum.DisplayDistanceType = d.dist or Enum.HumanoidDisplayDistanceType.Viewer
+		d.hum.WalkSpeed = d.walk
+		d.hum.JumpPower = d.jump
+		d.hum.UseJumpPower = d.use
+		d.hum.PlatformStand = d.platform
+		d.hum.AutoRotate = d.auto
+	end
+	if e.victimaHRP and e.victimaHRP.Parent then
+		e.victimaHRP.Anchored = d.anclado
+	end
+	if not e.estabaKO and d.hum and d.hum.Parent and not d.anclado then
+		pcall(function() d.hum:ChangeState(Enum.HumanoidStateType.GettingUp) end)
+	end
+end
+
+local function moverGrabadorAbajo(grabador, puppetHRP)
+	local c = grabador.Character
+	local h = humDe(c)
+	local r = hrpDe(c)
+	if not (c and h and r) then return nil end
+	local d = {
+		char = c,
+		hum = h,
+		hrp = r,
 		anclado = r.Anchored,
-		plataforma = h.PlatformStand,
-		autogiro = h.AutoRotate,
-		velocidad = h.WalkSpeed,
-		salto = h.JumpPower,
-		usaSalto = h.UseJumpPower,
+		walk = h.WalkSpeed,
+		jump = h.JumpPower,
+		use = h.UseJumpPower,
+		platform = h.PlatformStand,
+		auto = h.AutoRotate,
 	}
-	e.piernaLado = arrancarPierna(modelo)
 	r.Anchored = true
-	h.PlatformStand = true
-	h.AutoRotate = false
 	h.WalkSpeed = 0
 	h.JumpPower = 0
 	h.UseJumpPower = true
-	cargas[modelo] = e
-	cargaDe[grabador] = e
-	modelo:SetAttribute("SpideyCargadoPor", grabador.Name)
-	grabador:SetAttribute("SpideyAgarrando", modelo.Name)
-	RE_Cuerpo:FireClient(grabador, "OK", modelo)
-	print("[Spidey V11.9] agarrado para todos: " .. modelo.Name .. " (por " .. grabador.Name .. ", pierna " .. tostring(e.piernaLado) .. " arrancada)")
+	h.PlatformStand = true
+	h.AutoRotate = false
+	local abajo = puppetHRP.Position - Vector3.new(0, DIST_ABAJO, 0)
+	r.CFrame = CFrame.lookAt(abajo, abajo + Vector3.new(0, 10, 0))
+	return d
 end
 
-RE_Cuerpo.OnServerEvent:Connect(function(jugador, accion)
+local function restaurarGrabador(e)
+	local d = e.datosG
+	if not d then return end
+	local c = e.grabador.Character
+	if not c or c ~= d.char or not d.hrp or not d.hrp.Parent or not d.hum or not d.hum.Parent then return end
+	local pos = e.salidaPos or d.hrp.Position
+	local yaw = 0
+	local rot = e.salidaRot
+	if rot then
+		local l = rot.LookVector
+		if Vector3.new(l.X, 0, l.Z).Magnitude > 0.01 then
+			yaw = math.atan2(l.X, l.Z)
+		end
+	end
+	d.hrp.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0)) * CFrame.Angles(0, yaw, 0)
+	d.hrp.Anchored = d.anclado
+	d.hum.WalkSpeed = d.walk
+	d.hum.JumpPower = d.jump
+	d.hum.UseJumpPower = d.use
+	d.hum.PlatformStand = d.platform
+	d.hum.AutoRotate = d.auto
+	if not d.anclado then
+		pcall(function() d.hum:ChangeState(Enum.HumanoidStateType.GettingUp) end)
+	end
+end
+
+local function debeSoltar(e)
+	local h = e.victimaHum
+	if not h or not h.Parent then return true, "la victima desaparecio" end
+	if h.Health >= h.MaxHealth - 0.5 then return true, "curado" end
+	if e.estabaKO then
+		local ko = e.ko
+		if not ko or not ko.Parent or ko.Value == false then
+			return true, "curado"
+		end
+	end
+	return false, nil
+end
+
+local function terminarControl(grabador, motivo)
+	local e = controles[grabador]
+	if not e then return end
+	controles[grabador] = nil
+	if e.victima then controladoPor[e.victima] = nil end
+
+	if e.puppetHRP and e.puppetHRP.Parent then
+		e.salidaPos = e.puppetHRP.Position
+		e.salidaRot = e.puppetHRP.CFrame
+	end
+	if e.tracks then
+		for _, tr in pairs(e.tracks) do
+			pcall(function() tr:Stop(0) end)
+		end
+	end
+	restaurarVictima(e, e.salidaRot)
+	restaurarGrabador(e)
+
+	if grabador and grabador.Parent then
+		grabador:SetAttribute("SpideyControlando", nil)
+		RE_Cuerpo:FireClient(grabador, "STOP", motivo)
+	end
+	if e.victima and e.victima.Parent then
+		e.victima:SetAttribute("SpideyControladoPor", nil)
+	end
+	if e.puppet and e.puppet.Parent then e.puppet:Destroy() end
+	print("[Spidey V12.0] control soltado (" .. tostring(motivo or "manual") .. ")")
+end
+
+local function iniciarControl(grabador, victima)
+	if controles[grabador] or controladoPor[victima] then return false end
+	local vh = humDe(victima)
+	local vr = hrpDe(victima)
+	if not vh or not vr or vh.Health <= 0 then return false end
+
+	local desc = nil
+	pcall(function() desc = vh:GetAppliedDescription() end)
+	local rig = vh.RigType
+	local puppet = nil
+	local creado = false
+	if desc then
+		local ok, m = pcall(function()
+			return Players:CreateHumanoidModelFromDescription(desc, rig)
+		end)
+		if ok and m then
+			puppet = m
+			creado = true
+		end
+	end
+	if not puppet then
+		local base = grabador.Character
+		if base then
+			local ok, m = pcall(function() return base:Clone() end)
+			if ok and m then puppet = m end
+		end
+	end
+	if not puppet then return false end
+
+	puppet.Name = "SpideyPuppet_" .. grabador.Name
+	local aplicada = false
+	if desc and not creado then
+		aplicada = pcall(function() puppet.Humanoid:ApplyDescription(desc) end)
+	end
+	if not creado and not aplicada then
+		copiarAspecto(puppet, victima)
+	end
+	limpiarPuppet(puppet)
+	local ph = humDe(puppet)
+	local phrp = hrpDe(puppet)
+	if not ph or not phrp then
+		puppet:Destroy()
+		return false
+	end
+	puppet.PrimaryPart = phrp
+	puppet:SetAttribute("SpideyPuppet", true)
+	puppet:SetAttribute("SpideyDueno", grabador.Name)
+	puppet:SetAttribute("SpideyVictima", victima.Name)
+	ph.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+	ph.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+	ph.NameDisplayDistance = 0
+	ph.HealthDisplayDistance = 0
+	ph.BreakJointsOnDeath = false
+	ph.MaxHealth = math.max(vh.MaxHealth, 100)
+	ph.Health = ph.MaxHealth
+	ph.WalkSpeed = 16
+	ph.JumpPower = 50
+	ph.UseJumpPower = true
+	ph.PlatformStand = false
+	ph.AutoRotate = true
+	pcall(function()
+		ph:SetStateEnabled(Enum.HumanoidStateType.Climbing, false)
+		ph:SetStateEnabled(Enum.HumanoidStateType.Swimming, false)
+	end)
+
+	local cframe = posicionPuppet(victima, grabador, puppet)
+	puppet.Parent = workspace
+	puppet:PivotTo(cframe)
+	phrp.Anchored = false
+	phrp:SetNetworkOwner(nil)
+	ph:ChangeState(Enum.HumanoidStateType.Running)
+	ph:Move(Vector3.zero, false)
+	task.delay(0.35, function()
+		if ph and ph.Parent and ph.FloorMaterial ~= Enum.Material.Air then
+			pcall(function() ph:ChangeState(Enum.HumanoidStateType.Running) end)
+		end
+	end)
+
+	local ko = valorKO(victima)
+	local e = {
+		grabador = grabador,
+		victima = victima,
+		victimaHum = vh,
+		victimaHRP = vr,
+		ko = ko,
+		estabaKO = (ko and ko.Value == true) or false,
+		puppet = puppet,
+		puppetHum = ph,
+		puppetHRP = phrp,
+		mov = Vector3.zero,
+		animActual = nil,
+	}
+	e.datosV = ocultarVictima(victima)
+	e.datosG = moverGrabadorAbajo(grabador, phrp)
+	if not e.datosG then
+		restaurarVictima(e, nil)
+		puppet:Destroy()
+		return false
+	end
+	e.tracks = cargarTracks(puppet, victima)
+	actualizarAnimaciones(e)
+
+	controles[grabador] = e
+	controladoPor[victima] = grabador
+	grabador:SetAttribute("SpideyControlando", victima.Name)
+	victima:SetAttribute("SpideyControladoPor", grabador.Name)
+	RE_Cuerpo:FireClient(grabador, "START", puppet, victima.Name)
+	print("[Spidey V12.0] controlando para todos: " .. victima.Name .. " (por " .. grabador.Name .. ")")
+	return true
+end
+
+RE_Cuerpo.OnServerEvent:Connect(function(jugador, accion, a, b)
 	if type(accion) ~= "string" then return end
 	if accion == "GRAB" then
-		if cargaDe[jugador] then return end
-		local c = jugador.Character
-		if c and cargas[c] then return end
+		if controles[jugador] then return end
 		local ahora = os.clock()
 		if ultimoIntento[jugador] and ahora - ultimoIntento[jugador] < 0.35 then return end
 		ultimoIntento[jugador] = ahora
-		local modelo = buscarVictima(jugador)
-		if not modelo then
+		local victima = buscarVictima(jugador)
+		if not victima then
 			RE_Cuerpo:FireClient(jugador, "NO")
 			return
 		end
-		iniciarCarga(jugador, modelo)
+		if not iniciarControl(jugador, victima) then
+			RE_Cuerpo:FireClient(jugador, "NO")
+		end
 	elseif accion == "RELEASE" then
-		soltar(jugador, "manual")
+		terminarControl(jugador, "manual")
+	elseif accion == "MOVE" then
+		local e = controles[jugador]
+		if e and typeof(a) == "Vector3" then
+			local mov = Vector3.new(a.X, 0, a.Z)
+			if mov.Magnitude > 1 then mov = mov.Unit end
+			e.mov = mov
+			e.ultimoMov = os.clock()
+			if e.puppetHum and e.puppetHum.Parent then
+				e.puppetHum:Move(mov, false)
+			end
+		end
+	elseif accion == "JUMP" then
+		local e = controles[jugador]
+		if e and e.puppetHum and e.puppetHum.Parent then
+			local st = e.puppetHum:GetState()
+			if st ~= Enum.HumanoidStateType.Jumping and st ~= Enum.HumanoidStateType.Freefall then
+				e.puppetHum.Jump = true
+			end
+		end
 	end
 end)
 
 RunService.Heartbeat:Connect(function()
-	for grabador, e in pairs(cargaDe) do
+	for grabador, e in pairs(controles) do
 		local gc = grabador.Character
-		local gh = gc and gc:FindFirstChildOfClass("Humanoid")
-		local gr = hrpDe(gc)
-		local modelo = e.modelo
-		if not grabador.Parent or not gc or not gh or gh.Health <= 0 or not gr
-			or not modelo or not modelo.Parent or not e.raiz.Parent
-			or not e.humanoide.Parent then
-			soltar(grabador, "auto")
+		local gh = humDe(gc)
+		local valido = grabador.Parent and gc and gh and gh.Health > 0
+			and e.puppet and e.puppet.Parent and e.puppetHum and e.puppetHum.Parent
+			and e.victima and e.victima.Parent and e.victimaHum and e.victimaHum.Parent
+			and e.puppetHRP and e.puppetHRP.Parent and e.datosG and gc == e.datosG.char
+		if not valido then
+			terminarControl(grabador, "auto")
 		else
-			-- Reafirma el ancla y el bloqueo por si el cliente de la
-			-- victima intenta mover/desanclar su personaje.
-			if not e.raiz.Anchored then e.raiz.Anchored = true end
-			if e.humanoide.WalkSpeed ~= 0 then e.humanoide.WalkSpeed = 0 end
-			if not e.humanoide.PlatformStand then e.humanoide.PlatformStand = true end
-			modelo:PivotTo(poseCarga(gr, workspace:GetServerTimeNow()))
+			local debe, motivo = debeSoltar(e)
+			if debe then
+				terminarControl(grabador, motivo)
+			else
+				if e.puppetHRP.Anchored then e.puppetHRP.Anchored = false end
+				if e.puppetHum.PlatformStand then e.puppetHum.PlatformStand = false end
+				if e.puppetHum.WalkSpeed ~= 16 then e.puppetHum.WalkSpeed = 16 end
+				if e.puppetHum.JumpPower ~= 50 then e.puppetHum.JumpPower = 50 end
+				if e.puppetHum.Health <= 0 then
+					terminarControl(grabador, "el cuerpo murio")
+				elseif e.puppetHRP.Position.Y < -100 then
+					terminarControl(grabador, "el cuerpo se cayo del mapa")
+				else
+					if e.ultimoMov and os.clock() - e.ultimoMov > 0.3 and e.mov and e.mov.Magnitude > 0 then
+						e.mov = Vector3.zero
+						e.puppetHum:Move(Vector3.zero, false)
+					end
+					actualizarAnimaciones(e)
+				end
+			end
 		end
 	end
 end)
 
-local function conectarJugadorCuerpo(pl)
+local function conectarJugadorControl(pl)
 	pl.CharacterRemoving:Connect(function(c)
-		if cargaDe[pl] then
-			soltar(pl, "respawn del agarrador")
+		if controles[pl] then
+			terminarControl(pl, "respawn del que controla")
 		end
-		if c and cargas[c] then
-			soltar(cargas[c].grabador, "respawn de la victima")
+		local dueno = c and controladoPor[c]
+		if dueno then
+			terminarControl(dueno, "respawn de la victima")
 		end
 	end)
 end
 for _, pl in ipairs(Players:GetPlayers()) do
-	conectarJugadorCuerpo(pl)
+	conectarJugadorControl(pl)
 end
-Players.PlayerAdded:Connect(conectarJugadorCuerpo)
+Players.PlayerAdded:Connect(conectarJugadorControl)
 Players.PlayerRemoving:Connect(function(pl)
-	if cargaDe[pl] then
-		soltar(pl, "salio el agarrador")
+	if controles[pl] then
+		terminarControl(pl, "salio el que controla")
 	end
-	if pl.Character and cargas[pl.Character] then
-		soltar(cargas[pl.Character].grabador, "salio la victima")
+	if pl.Character and controladoPor[pl.Character] then
+		terminarControl(controladoPor[pl.Character], "salio la victima")
 	end
 end)
 
--- API de servidor para pruebas/avanzado (solo accesible desde scripts
--- de servidor o la consola de Studio; los exploiters no la ven).
+-- API de servidor para pruebas/avanzado.
 _G.SpideyV11Servidor = {
 	info = function()
 		local t = {}
-		for modelo, e in pairs(cargas) do
-			table.insert(t, modelo.Name .. " <- " .. e.grabador.Name)
+		for modelo, e in pairs(controles) do
+			table.insert(t, e.victima.Name .. " <- " .. modelo.Name)
 		end
-		if #t == 0 then return "sin agarres" end
+		if #t == 0 then return "sin controles" end
 		return table.concat(t, " | ")
 	end,
 	soltar = function(pl)
-		soltar(pl, "api")
+		terminarControl(pl, "api")
 	end,
 }
 
-print("[Spidey V11.9] cuerpo listo: agarre replicado por RE_Cuerpo; pierna arrancada y cuerpo flotando al frente")
+print("[Spidey V12.0] control listo: G agarra al herido/K.O., el muñeco camina y salta")
 
 print("[Spidey V11] Servidor listo; valida telaranas y difunde animaciones por RE_Anim")
 
@@ -930,7 +1286,7 @@ local Assets = RS:FindFirstChild("SpideyAssets")
 local Sonidos = Assets and Assets:FindFirstChild("Sonidos")
 
 -- ============================================================
--- MÓDULO POSE (incrustado; antes ReplicatedStorage.SpideyMod.Pose)
+-- MÃDULO POSE (incrustado; antes ReplicatedStorage.SpideyMod.Pose)
 -- ============================================================
 local Pose = (function()
 local Pose = {}
@@ -944,7 +1300,7 @@ local ORDEN = {
 	"RHip", "RKne", "RAnk", "LHip", "LKne", "LAnk",
 }
 
--- Nombres en el rig. Se busca AnimationConstraint primero y Motor6D después.
+-- Nombres en el rig. Se busca AnimationConstraint primero y Motor6D despuÃ©s.
 local NOMBRES = {
 	Root = { "Root" },
 	Waist = { "Waist", "Torso" },
@@ -1056,11 +1412,11 @@ local function deltaNormal(x, y, z)
 	return CFrame.Angles(rad(x), rad(y), rad(z))
 end
 
--- Las poses normales (Pose.Despegue, Caida, etc.) están escritas para un
+-- Las poses normales (Pose.Despegue, Caida, etc.) estÃ¡n escritas para un
 -- rig en T: 0 = brazos horizontales. En AnimationConstraint los brazos
--- cuelgan, así que hay que convertir el ángulo.
---   Derecho: +Z sube el brazo hasta la T; T-convención negativa = bajar.
---   Izquierdo: -Z sube el brazo hasta la T; T-convención positiva = bajar.
+-- cuelgan, asÃ­ que hay que convertir el Ã¡ngulo.
+--   Derecho: +Z sube el brazo hasta la T; T-convenciÃ³n negativa = bajar.
+--   Izquierdo: -Z sube el brazo hasta la T; T-convenciÃ³n positiva = bajar.
 local function convertirAditivo(tipo, clave, x, y, z)
 	if tipo == "AC" then
 		if clave == "RSh" then
@@ -1072,8 +1428,8 @@ local function convertirAditivo(tipo, clave, x, y, z)
 	return x, y, z
 end
 
--- Las secuencias A/B están escritas con 0 = brazos abajo. En Motor6D/R6
--- el reposo es T, así que se les resta la diferencia.
+-- Las secuencias A/B estÃ¡n escritas con 0 = brazos abajo. En Motor6D/R6
+-- el reposo es T, asÃ­ que se les resta la diferencia.
 local function convertirExacto(tipo, clave, x, y, z)
 	if tipo ~= "AC" then
 		if clave == "RSh" then
@@ -1158,7 +1514,7 @@ function Pose.Info(modelo)
 end
 
 -----------------------------------------------------------------
--- Capa aditiva (poses normales del balanceo, caída, trepa...)
+-- Capa aditiva (poses normales del balanceo, caÃ­da, trepa...)
 -----------------------------------------------------------------
 function Pose.Objetivo(tabla, modelo)
 	if modelo then Pose.UsarAditivo(modelo) end
@@ -1239,8 +1595,8 @@ function Pose.Limpiar(modelo)
 end
 
 -----------------------------------------------------------------
--- Constructores de poses (convención T para rigs Motor6D;
--- el módulo las convierte a AnimationConstraint automáticamente)
+-- Constructores de poses (convenciÃ³n T para rigs Motor6D;
+-- el mÃ³dulo las convierte a AnimationConstraint automÃ¡ticamente)
 -----------------------------------------------------------------
 local function ch(x, y, z)
 	return { x = x, y = y, z = z }
@@ -1336,9 +1692,9 @@ end
 end)()
 
 -- ============================================================
--- MÓDULO CAMARA (incrustado; capa de efectos sobre la cámara
+-- MÃDULO CAMARA (incrustado; capa de efectos sobre la cÃ¡mara
 -- por defecto de Roblox: FOV con la velocidad + sacudidas)
--- API: Camara.Iniciar(camara, humanoid) · Camara.Update(dt, vel, lat, enSuelo)
+-- API: Camara.Iniciar(camara, humanoid) Â· Camara.Update(dt, vel, lat, enSuelo)
 --      Camara.Sacudida(fuerza)
 -- ============================================================
 local Camara = (function()
@@ -1383,7 +1739,7 @@ local RESET_CLIC = 4
 -- CAPA VISIBLE V11 (lo que TODOS los jugadores ven)
 -- ============================================================
 -- ANIM_IDS: tus animaciones subidas. Solo CARGAN en juegos cuyo
--- dueño seas tu (tu copia de Da Hood, tus places). Pega aqui los IDs.
+-- dueÃ±o seas tu (tu copia de Da Hood, tus places). Pega aqui los IDs.
 --   Ejemplo:  local ANIM_IDS = { A = 88979567248071, B = 0 }
 local ANIM_IDS = {
 	A = 0,
@@ -1440,7 +1796,7 @@ local ORDEN = {
 
 -----------------------------------------------------------------
 -- SECUENCIAS A/B
--- Unidades: grados. Convención: 0 = brazos abajo, piernas abajo.
+-- Unidades: grados. ConvenciÃ³n: 0 = brazos abajo, piernas abajo.
 --   Root: X = cabeceo (negativo = giro hacia delante), Y = giro, Z = alabeo
 --   Waist/Neck: X negativo = inclinarse/ mirar abajo
 --   Hombro X positivo = brazo adelante
@@ -1454,7 +1810,7 @@ local SEC = {}
 SEC.A = {
 	duracion = 1.833,
 	frames = {
-		-- A1: carga, el brazo derecho arranca desde atrás
+		-- A1: carga, el brazo derecho arranca desde atrÃ¡s
 		{ t = 0.000, e = "quadOut", p = {
 			Root = { 6, 0, -4 }, Waist = { -8, -6, 0 }, Neck = { 4, -8, 0 },
 			RSh = { -20, 0, 15 }, REl = { 45, 0, 0 }, RHa = { 0, 0, 0 },
@@ -1470,7 +1826,7 @@ SEC.A = {
 			RHip = { 14, 0, 4 }, RKne = { -28, 0, 0 }, RAnk = { -10, 0, 0 },
 			LHip = { -6, 0, -4 }, LKne = { -14, 0, 0 }, LAnk = { -4, 0, 0 },
 		}, RootPos = { x = 0, y = -0.05, z = 0 } },
-		-- A3: extensión completa hacia arriba
+		-- A3: extensiÃ³n completa hacia arriba
 		{ t = 0.320, e = "sineInOut", p = {
 			Root = { -5, 0, 0 }, Waist = { -4, 0, 0 }, Neck = { 10, 0, 0 },
 			RSh = { 30, 0, 152 }, REl = { 8, 0, 0 }, RHa = { 0, 0, 0 },
@@ -1478,7 +1834,7 @@ SEC.A = {
 			RHip = { 12, 0, 4 }, RKne = { -24, 0, 0 }, RAnk = { -8, 0, 0 },
 			LHip = { -4, 0, -4 }, LKne = { -12, 0, 0 }, LAnk = { -4, 0, 0 },
 		}, RootPos = { x = 0, y = 0, z = 0 } },
-		-- A4: el tirón dobla el cuerpo hacia delante
+		-- A4: el tirÃ³n dobla el cuerpo hacia delante
 		{ t = 0.500, e = "quadIn", p = {
 			Root = { 12, 0, 0 }, Waist = { -16, 0, 0 }, Neck = { -6, 0, 0 },
 			RSh = { 55, 0, 70 }, REl = { 70, 0, 0 }, RHa = { 5, 0, 0 },
@@ -1555,7 +1911,7 @@ SEC.B = {
 			RHip = { 45, 0, 8 }, RKne = { -70, 0, 0 }, RAnk = { -16, 0, 0 },
 			LHip = { 20, 0, -8 }, LKne = { -50, 0, 0 }, LAnk = { -10, 0, 0 },
 		}, RootPos = { x = 0, y = -0.45, z = 0 } },
-		-- B3: despegue del backflip, cuerpo arqueado atrás
+		-- B3: despegue del backflip, cuerpo arqueado atrÃ¡s
 		{ t = 1.100, e = "quadOut", p = {
 			Root = { 55, -14, -10 }, Waist = { -8, -4, 0 }, Neck = { 14, 8, 0 },
 			RSh = { 70, 0, 115 }, REl = { 25, 0, 0 }, RHa = { 0, 0, 0 },
@@ -1563,7 +1919,7 @@ SEC.B = {
 			RHip = { -15, 0, 6 }, RKne = { -12, 0, 0 }, RAnk = { -30, 0, 0 },
 			LHip = { -10, 0, -6 }, LKne = { -10, 0, 0 }, LAnk = { -28, 0, 0 },
 		}, RootPos = { x = 0, y = 0.25, z = 0 } },
-		-- B4: cuarto de giro, aún abierto
+		-- B4: cuarto de giro, aÃºn abierto
 		{ t = 1.450, e = "linear", p = {
 			Root = { 150, -10, -8 }, Waist = { -6, 0, 0 }, Neck = { 10, 0, 0 },
 			RSh = { 85, 0, 95 }, REl = { 40, 0, 0 }, RHa = { 0, 0, 0 },
@@ -1602,7 +1958,7 @@ SEC.B = {
 			RHip = { 92, 0, 8 }, RKne = { -130, 0, 0 }, RAnk = { 23, 0, 0 },
 			LHip = { 86, 0, -8 }, LKne = { -124, 0, 0 }, LAnk = { 21, 0, 0 },
 		}, RootPos = { x = 0, y = -1.12, z = 0 } },
-		-- B8: recarga más hondo el segundo salto
+		-- B8: recarga mÃ¡s hondo el segundo salto
 		{ t = 3.200, e = "quadIn", p = {
 			Root = { 360, 0, 0 }, Waist = { -30, 0, 0 }, Neck = { -18, 0, 0 },
 			RSh = { 60, 0, 20 }, REl = { 120, 0, 0 }, RHa = { 10, 0, 0 },
@@ -1610,7 +1966,7 @@ SEC.B = {
 			RHip = { 100, 0, 8 }, RKne = { -138, 0, 0 }, RAnk = { 26, 0, 0 },
 			LHip = { 94, 0, -8 }, LKne = { -132, 0, 0 }, LAnk = { 24, 0, 0 },
 		}, RootPos = { x = 0, y = -1.22, z = 0 } },
-		-- B9: segundo despegue hacia atrás
+		-- B9: segundo despegue hacia atrÃ¡s
 		{ t = 3.500, e = "quadOut", p = {
 			Root = { 415, -12, -8 }, Waist = { -6, 0, 0 }, Neck = { 12, 6, 0 },
 			RSh = { 72, 0, 110 }, REl = { 28, 0, 0 }, RHa = { 0, 0, 0 },
@@ -1811,7 +2167,7 @@ local function restaurarHumano()
 end
 
 -----------------------------------------------------------------
--- TELARAÑA
+-- TELARAÃA
 -----------------------------------------------------------------
 local function configurarBeam(beam, att0, att1)
 	beam.Attachment0 = att0
@@ -1858,7 +2214,7 @@ local function crearRed(modelo, punto)
 	attMano.Parent = mano or parte
 
 	local beam = Instance.new("Beam")
-	beam.Name = "Telaraña"
+	beam.Name = "TelaraÃ±a"
 	configurarBeam(beam, attMano, attAncla)
 	beam.Parent = parte
 
@@ -1951,7 +2307,7 @@ end
 -----------------------------------------------------------------
 -- CAPA VISIBLE: los AnimationTrack del Animator SI se replican a todos
 -- los clientes (asi funcionan el Animate del juego y los emotes). Roblox
--- solo deja cargar animaciones del dueño del juego o de Roblox; por eso
+-- solo deja cargar animaciones del dueÃ±o del juego o de Roblox; por eso
 -- se prueba cada ID y se usa el primero que cargue de verdad (Length > 0).
 local function candidatosAnim(nombre)
 	local lista = {}
@@ -2021,7 +2377,7 @@ local function probarAnimaciones()
 					track.Priority = Enum.AnimationPriority.Action
 					track.Looped = (ANIM_LOOP[nombre] == true)
 					-- Roblox carga el asset en segundo plano: esperar a que
-					-- Length sea mayor que 0 (si no es del dueño, se queda en 0).
+					-- Length sea mayor que 0 (si no es del dueÃ±o, se queda en 0).
 					local espera = 0
 					while track.Length <= 0 and espera < 2.5 do
 						task.wait(0.1)
@@ -2063,8 +2419,8 @@ local function detenerSecuencia(modelo)
 		pararTrackAnim(s.nombre)
 		terminarGiroFisico()
 	end
-	-- La telaraña NO se quita aquí: puede seguir activa después de que la
-	-- animación termine. Se quita al recibir STOP o al soltar.
+	-- La telaraÃ±a NO se quita aquÃ­: puede seguir activa despuÃ©s de que la
+	-- animaciÃ³n termine. Se quita al recibir STOP o al soltar.
 end
 
 local function iniciarSecuencia(modelo, nombre, inicio, jugador, esLocal)
@@ -2076,7 +2432,7 @@ local function iniciarSecuencia(modelo, nombre, inicio, jugador, esLocal)
 	Pose.Cachear(modelo)
 	-- Apaga la capa aditiva local mientras dure la pose exacta para que no
 	-- haya un salto al terminar. No tocar la capa aditiva por personajes
-	-- remotos: el módulo Pose solo tiene una capa aditiva activa.
+	-- remotos: el mÃ³dulo Pose solo tiene una capa aditiva activa.
 	if modelo == char then
 		Pose.Objetivo({}, char)
 	end
@@ -2101,7 +2457,7 @@ local function finalizarSecuencia(modelo)
 	if not s then return end
 	detenerSecuencia(modelo)
 
-	-- Solo se detiene la pose. La telaraña y el balanceo siguen hasta que
+	-- Solo se detiene la pose. La telaraÃ±a y el balanceo siguen hasta que
 	-- el jugador suelte o el servidor mande STOP.
 end
 
@@ -2173,7 +2529,7 @@ local function detectarPared()
 end
 
 -----------------------------------------------------------------
--- FÍSICA
+-- FÃSICA
 -----------------------------------------------------------------
 local function fisicaColgado(dt)
 	local d = anclaPos - hrp.Position
@@ -2276,7 +2632,7 @@ local function fisicaTrepa(dt)
 end
 
 -----------------------------------------------------------------
--- DISPARO / LIBERACIÓN
+-- DISPARO / LIBERACIÃN
 -----------------------------------------------------------------
 local function lanzarWeb()
 	if not spiderTool or spiderTool.Parent ~= char then return end
@@ -2344,7 +2700,7 @@ end
 -----------------------------------------------------------------
 local function configurarTool(t)
 	if not t or not t:IsA("Tool") then return end
-	t.ToolTip = "Equipa y mantén clic izquierdo para lanzar la telaraña"
+	t.ToolTip = "Equipa y mantÃ©n clic izquierdo para lanzar la telaraÃ±a"
 	t.RequiresHandle = false
 	t.CanBeDropped = false
 	t.ManualActivationOnly = true
@@ -2402,7 +2758,7 @@ local function asegurarTool()
 	end
 	local t = Instance.new("Tool")
 	t.Name = "Spider"
-	t.ToolTip = "Equipa y mantén clic izquierdo para lanzar la telaraña"
+	t.ToolTip = "Equipa y mantÃ©n clic izquierdo para lanzar la telaraÃ±a"
 	t.RequiresHandle = false
 	t.CanBeDropped = false
 	t.ManualActivationOnly = true
@@ -2417,6 +2773,9 @@ local cargandoRemoto = false -- V11.7: el servidor confirma que cargas a alguien
 local victimaRemota = nil
 local function bucle(dt)
 	if not hrp or not hum then return end
+	-- V12.0: mientras controlas otro cuerpo, tu avatar queda quieto
+	-- debajo del mapa; no ejecutes telarana/poses en el.
+	if agarrado or cargandoRemoto then return end
 
 	if hum.Health <= 0 then
 		if estado ~= E.Dead then
@@ -2552,7 +2911,7 @@ local function bucle(dt)
 end
 
 -----------------------------------------------------------------
--- APLICACIÓN DE SECUENCIAS (PreSimulation)
+-- APLICACIÃN DE SECUENCIAS (PreSimulation)
 -----------------------------------------------------------------
 RunService.PreSimulation:Connect(function()
 	local ahora = workspace:GetServerTimeNow()
@@ -2774,7 +3133,7 @@ local function crearGUI()
 	txt.Font = Enum.Font.GothamMedium
 	txt.TextColor3 = Color3.fromRGB(228, 238, 255)
 	txt.TextScaled = true
-	txt.Text = "SPIDER: CLIC IZQ = TELARAÑA (A/B) · MANTÉN = BALANCEO · X+PARED = TREPAR · ESPACIO = SALTAR · CTRL+G = AGARRAR · Q = LOCK (DUEÑO) · J = ESP"
+	txt.Text = "SPIDER: CLIC IZQ = TELARAÃA (A/B) Â· MANTÃN = BALANCEO Â· X+PARED = TREPAR Â· ESPACIO = SALTAR Â· G = CONTROLAR/SOLTAR Â· Q = LOCK (DUEÃO) Â· J = ESP"
 	txt.Parent = panel
 
 	task.delay(10, function()
@@ -2903,24 +3262,22 @@ end
 
 RunService.Heartbeat:Connect(bucle)
 -----------------------------------------------------------------
--- V11.7 · AGARRE (Ctrl+G), LOCK (Q) y ESP (J)
+-- V12.0 · CONTROL (G), LOCK (Q) y ESP (J)
 -- DOS MODOS:
---  * CON SERVIDOR (tu juego, con SpideyV11 en ServerScriptService):
---    el servidor mueve a la victima de verdad. Lo ven TODOS los
---    jugadores y la victima lo siente en su cuerpo. El LOCK del
---    dueño tambien funciona: el servidor dirige las balas.
+--  * CON SERVIDOR: el servidor crea un muñeco con las articulaciones
+--    intactas en el sitio del herido. Tu camara lo sigue y tus teclas
+--    lo mueven. Tu avatar real se queda debajo del mapa. Todos ven el
+--    cuerpo controlado; el herido real se oculta mientras tanto.
 --  * SIN SERVIDOR (Da Hood / executor): el cuerpo real de otra
---    persona no se puede tocar desde el cliente. Para que al menos
---    se vea bien, se oculta el cuerpo real y se muestra un clon
---    delante de ti; solo lo ves tu. El LOCK ahi sigue viendose
---    (contorno + linea: son visuales de tu pantalla), pero NO
---    dirige balas: sin servidor es imposible.
+--    persona no se puede mover desde el cliente. Se crea un clon
+--    local con el mismo aspecto; solo TU lo ves y lo controlas. El
+--    lock y el ESP siguen siendo locales; las balas se intentan
+--    dirigir con el remoto del juego, como en V11.7.
 -----------------------------------------------------------------
 local V11 = {}
 local espActivo = false
 local espDatos = {}           -- [player o "prueba"] = { hl, bb, modelo }
-local RANGO_AGARRE = 9
-local DIST_AGARRE = 5.5
+local RANGO_CONTROL = 9
 
 -- Aviso pequeno abajo en pantalla (no reemplaza el HUD del juego).
 local hudTexto = nil
@@ -2957,18 +3314,31 @@ local function mostrarHUD(texto)
 	hudTexto.Visible = texto ~= nil
 end
 
--- Sirve para vivos y tambien para cuerpos derribados/KO (Health 0),
--- que en Da Hood son justo los que estan tirados en el piso.
-local function cuerpoValido(modelo)
-	if not modelo or modelo == char or not modelo.Parent then return false end
-	local h = modelo:FindFirstChildOfClass("Humanoid")
-	local r = modelo:FindFirstChild("HumanoidRootPart")
-	if not h or not r then return false end
-	return true
+local function valorKO(modelo)
+	local be = modelo and modelo:FindFirstChild("BodyEffects")
+	local ko = be and be:FindFirstChild("K.O")
+	if ko and ko:IsA("BoolValue") then return ko end
+	return nil
 end
 
--- Busca el cuerpo mas cercano que este debajo (o casi a la altura)
--- del jugador: sirve para cuerpos tirados/KO de Da Hood y NPCs.
+-- Sirve para vivos y tambien para cuerpos derribados/K.O. (Health 0.5),
+-- que en Da Hood son justo los que estan tirados en el piso.
+local function estaHerido(modelo, base)
+	if not modelo or modelo == base or not modelo.Parent then return false end
+	if modelo:GetAttribute("SpideyPuppet") then return false end
+	local h = modelo:FindFirstChildOfClass("Humanoid")
+	local r = modelo:FindFirstChild("HumanoidRootPart")
+	if not h or not r or h.Health <= 0 then return false end
+	local ko = valorKO(modelo)
+	if ko and ko.Value then return true end
+	if h.Health <= 0.5 then return true end
+	if h.Health < h.MaxHealth - 0.5 then
+		local br = base and base:FindFirstChild("HumanoidRootPart")
+		if not br or r.Position.Y <= br.Position.Y + 1.5 then return true end
+	end
+	return false
+end
+
 local function buscarCuerpo()
 	local mejor, mejorPuntaje = nil, math.huge
 	local p0 = (hrp and hrp.Position) or Vector3.zero
@@ -2976,16 +3346,13 @@ local function buscarCuerpo()
 	local function probar(modelo)
 		if not modelo or modelo == char or vistos[modelo] then return end
 		vistos[modelo] = true
-		if not cuerpoValido(modelo) then return end
+		if not estaHerido(modelo, char) then return end
 		local r = modelo:FindFirstChild("HumanoidRootPart")
 		local d = r.Position - p0
 		local horiz = Vector3.new(d.X, 0, d.Z).Magnitude
-		if horiz <= RANGO_AGARRE and d.Y <= 1.0 and d.Y >= -9 then
+		if horiz <= RANGO_CONTROL and d.Y <= 2.0 and d.Y >= -10 then
 			local puntaje = horiz + math.abs(d.Y + 2) * 0.35
-			-- prioriza personas reales sobre NPCs si hay varias opciones
-			if Players:GetPlayerFromCharacter(modelo) then
-				puntaje -= 0.8
-			end
+			if Players:GetPlayerFromCharacter(modelo) then puntaje -= 0.8 end
 			if puntaje < mejorPuntaje then
 				mejor, mejorPuntaje = modelo, puntaje
 			end
@@ -3003,8 +3370,8 @@ local function buscarCuerpo()
 end
 
 -----------------------------------------------------------------
--- MODO LOCAL: ocultar el cuerpo real y mostrar un clon delante.
--- Asi el agarre no se pelea con la posicion que llega del servidor.
+-- MODO LOCAL: ocultar el cuerpo real del herido y mostrar un clon
+-- controlable. El cuerpo real no se toca en el servidor.
 -----------------------------------------------------------------
 local function ocultarModeloReal(modelo)
 	if not modelo or not modelo.Parent then return nil end
@@ -3070,163 +3437,223 @@ local function restaurarModeloReal(modelo, datos)
 	end
 end
 
--- Pierna agarrada: se ARRANCA la derecha (o la izquierda si no hay).
--- En el clon local se arranca para que se vea separada y caiga; al
--- soltar el clon se destruye. En el cuerpo real (que no se puede tocar
--- desde un juego ajeno) se oculta la pierna al soltar para que se vea
--- sin ella, aunque el cuerpo siga caminando normal.
-local NOMBRES_PIERNA_DERECHA = { "RightUpperLeg", "RightLowerLeg", "RightFoot", "Right Leg" }
-local NOMBRES_PIERNA_IZQUIERDA = { "LeftUpperLeg", "LeftLowerLeg", "LeftFoot", "Left Leg" }
+-- IDs de animacion que SI cargan en cualquier juego (Roblox R15).
+local IDS_ANIM_R15 = {
+	idle = "rbxassetid://507766666",
+	walk = "rbxassetid://507777826",
+	run = "rbxassetid://507767714",
+	jump = "rbxassetid://507765000",
+	fall = "rbxassetid://507767968",
+}
+local IDS_ANIM_R6 = {
+	idle = "rbxassetid://180435571",
+	walk = "rbxassetid://180426354",
+	run = "rbxassetid://180426354",
+	jump = "rbxassetid://125750702",
+	fall = "rbxassetid://180436148",
+}
 
-local function partesPierna(modelo)
-	local lista = {}
-	for _, n in ipairs(NOMBRES_PIERNA_DERECHA) do
-		local p = modelo:FindFirstChild(n)
-		if p and p:IsA("BasePart") then table.insert(lista, p) end
+local function idsAnimacion(victima, puppet)
+	local h = puppet and puppet:FindFirstChildOfClass("Humanoid")
+	if not h then return {} end
+	if h.RigType == Enum.HumanoidRigType.R15 then
+		return IDS_ANIM_R15
 	end
-	if #lista > 0 then return lista, "derecha" end
-	for _, n in ipairs(NOMBRES_PIERNA_IZQUIERDA) do
-		local p = modelo:FindFirstChild(n)
-		if p and p:IsA("BasePart") then table.insert(lista, p) end
-	end
-	return lista, "izquierda"
-end
-
-local function ocultarPierna(modelo)
-	local datos = {}
-	local partes, lado = partesPierna(modelo)
-	for _, p in ipairs(partes) do
-		datos[p] = { p.Transparency, p.LocalTransparencyModifier }
-		p.Transparency = 1
-		p.LocalTransparencyModifier = 1
-		for _, d in ipairs(p:GetChildren()) do
-			if d:IsA("Decal") or d:IsA("Texture") then
-				datos[d] = { d.Transparency }
-				d.Transparency = 1
-			end
+	local ids = {}
+	local an = victima and victima:FindFirstChild("Animate")
+	if an then
+		for _, nombre in ipairs({ "idle", "walk", "run", "jump", "fall" }) do
+			local cont = an:FindFirstChild(nombre)
+			local anim = cont and cont:FindFirstChildWhichIsA("Animation", true)
+			if anim and anim.AnimationId ~= "" then ids[nombre] = anim.AnimationId end
 		end
 	end
-	return datos, lado
+	if next(ids) == nil then return IDS_ANIM_R6 end
+	return ids
 end
 
-local function arrancarPierna(modelo)
-	local partes, lado = partesPierna(modelo)
-	if #partes == 0 then return nil end
-	local set = {}
-	for _, p in ipairs(partes) do set[p] = true end
-	local uniones = {}
+local function cargarTracks(puppet, victima)
+	local h = puppet and puppet:FindFirstChildOfClass("Humanoid")
+	if not h then return {} end
+	local animator = h:FindFirstChildOfClass("Animator")
+	if not animator then
+		animator = Instance.new("Animator")
+		animator.Parent = h
+	end
+	local tracks = {}
+	for nombre, id in pairs(idsAnimacion(victima, puppet)) do
+		local a = Instance.new("Animation")
+		a.Name = "SpideyAnim_" .. nombre
+		a.AnimationId = id
+		local ok, tr = pcall(function() return animator:LoadAnimation(a) end)
+		if ok and tr then
+			pcall(function()
+				tr.Looped = (nombre == "idle" or nombre == "walk" or nombre == "run")
+			end)
+			tracks[nombre] = tr
+		end
+		a:Destroy()
+	end
+	return tracks
+end
+
+local function actualizarAnimacionesLocal(a)
+	local h = a.puppet and a.puppet:FindFirstChildOfClass("Humanoid")
+	if not h then return end
+	local estado = h:GetState()
+	local moviendo = h.MoveDirection.Magnitude > 0.08
+	local quiero = "idle"
+	if estado == Enum.HumanoidStateType.Jumping then
+		quiero = "jump"
+	elseif estado == Enum.HumanoidStateType.Freefall then
+		quiero = "fall"
+	elseif moviendo then
+		quiero = a.tracks and a.tracks.run and "run" or "walk"
+	end
+	if a.animActual == quiero then return end
+	for n, tr in pairs(a.tracks or {}) do
+		if n == quiero then
+			if not tr.IsPlaying then pcall(function() tr:Play(0.12) end) end
+		else
+			if tr.IsPlaying then pcall(function() tr:Stop(0.15) end) end
+		end
+	end
+	a.animActual = quiero
+end
+
+local function limpiarPuppetLocal(modelo)
+	local borrar = {}
 	for _, d in ipairs(modelo:GetDescendants()) do
-		local esUnion = d:IsA("Motor6D") or d:IsA("Weld") or d:IsA("WeldConstraint")
-			or d:IsA("AnimationConstraint") or d:IsA("BallSocketConstraint")
-			or d:IsA("HingeConstraint") or d:IsA("SocketConstraint")
-		if esUnion then
-			local dentro, fora = false, false
-			local p0, p1 = nil, nil
-			if d:IsA("JointInstance") or d:IsA("WeldConstraint") then
-				p0, p1 = d.Part0, d.Part1
-			end
-			if p0 or p1 then
-				if p0 then if set[p0] then dentro = true else fora = true end end
-				if p1 then if set[p1] then dentro = true else fora = true end end
-			else
-				local ok, a0, a1 = pcall(function() return d.Attachment0, d.Attachment1 end)
-				if ok then
-					if a0 and a0.Parent then if set[a0.Parent] then dentro = true else fora = true end end
-					if a1 and a1.Parent then if set[a1.Parent] then dentro = true else fora = true end end
-				end
-			end
-			if dentro and fora then table.insert(uniones, d) end
+		if d:IsA("BaseScript") or d:IsA("Tool") or d:IsA("Highlight")
+			or d:IsA("ForceField") or d:IsA("BillboardGui") or d:IsA("SurfaceGui")
+			or d:IsA("ParticleEmitter") or d:IsA("Trail") or d:IsA("Beam")
+			or d:IsA("Fire") or d:IsA("Smoke") or d:IsA("Sparkles")
+			or d:IsA("Camera") or d.Name == "BodyEffects" then
+			table.insert(borrar, d)
 		end
 	end
-	if #uniones == 0 then
-		for _, d in ipairs(modelo:GetDescendants()) do
-			if d:IsA("Motor6D") or d:IsA("Weld") or d:IsA("AnimationConstraint") or d:IsA("BallSocketConstraint") then
-				local n = string.lower(d.Name)
-				if string.find(n, "righthip") or string.find(n, "right hip") then
-					table.insert(uniones, d)
-				end
-			end
+	for _, d in ipairs(borrar) do
+		if d and d.Parent then d:Destroy() end
+	end
+end
+
+local function copiarAspectoLocal(destino, victima)
+	local vh = victima and victima:FindFirstChildOfClass("Humanoid")
+	local dh = destino and destino:FindFirstChildOfClass("Humanoid")
+	if not vh or not dh then return end
+	for _, clase in ipairs({ "Shirt", "Pants", "ShirtGraphic" }) do
+		local viejo = destino:FindFirstChildOfClass(clase)
+		if viejo then viejo:Destroy() end
+		local nuevo = victima:FindFirstChildOfClass(clase)
+		if nuevo then
+			local clon = nuevo:Clone()
+			clon.Parent = destino
 		end
 	end
-	for _, u in ipairs(uniones) do
-		u:Destroy()
+	local vb = victima:FindFirstChildOfClass("BodyColors")
+	local db = destino:FindFirstChildOfClass("BodyColors")
+	if vb and db then
+		for _, prop in ipairs({ "HeadColor", "LeftArmColor", "RightArmColor", "LeftLegColor", "RightLegColor", "TorsoColor" }) do
+			pcall(function() db[prop] = vb[prop] end)
+		end
 	end
-	local escombros = workspace:FindFirstChild("SpideyEscombros")
-	if not escombros then
-		escombros = Instance.new("Folder")
-		escombros.Name = "SpideyEscombros"
-		escombros.Parent = workspace
+	for _, acc in ipairs(victima:GetChildren()) do
+		if acc:IsA("Accessory") then
+			pcall(function() dh:AddAccessory(acc:Clone()) end)
+		end
 	end
-	for _, p in ipairs(partes) do
-		p.Anchored = false
-		p.CanCollide = false
-		p.CanQuery = false
-		p.CanTouch = false
-		p.Parent = escombros
+end
+
+local function posicionPuppetLocal(victima, puppet)
+	local vr = victima and victima:FindFirstChild("HumanoidRootPart")
+	local vpos = (vr and vr.Position) or Vector3.zero
+	local base = vpos + Vector3.new(0, 6, 0)
+	-- Igual que en el servidor: el clon aparece al lado del cuerpo
+	-- tirado, no encima, para que las piernas no se enreden.
+	if hrp then
+		local d = hrp.Position - vpos
+		d = Vector3.new(d.X, 0, d.Z)
+		if d.Magnitude > 0.1 then
+			base = base + d.Unit * 2.0
+		end
 	end
-	local raiz = partes[1]
-	if raiz then
-		raiz.AssemblyLinearVelocity = raiz.AssemblyLinearVelocity + Vector3.new(0, -100, 0) + raiz.CFrame.LookVector * 10
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { victima, puppet, char }
+	local hit = workspace:Raycast(base, Vector3.new(0, -40, 0), params)
+	local y = hit and hit.Position.Y or (vr and vr.Position.Y or base.Y)
+	local pos = Vector3.new(base.X, y + 3.5, base.Z)
+	local look = (hrp and (hrp.Position - pos)) or (vr and vr.CFrame.LookVector) or Vector3.new(0, 0, -1)
+	local plano = Vector3.new(look.X, 0, look.Z)
+	if plano.Magnitude < 0.01 then plano = Vector3.new(0, 0, -1) end
+	return CFrame.lookAt(pos, pos + plano.Unit)
+end
+
+local function crearPuppetLocal(victima)
+	if not victima or not victima.Parent then return nil, nil end
+	local vh = victima:FindFirstChildOfClass("Humanoid")
+	if not vh then return nil, nil end
+	local desc = nil
+	pcall(function() desc = vh:GetAppliedDescription() end)
+	local rig = vh.RigType
+	local puppet = nil
+	local creado = false
+	if desc then
+		local ok, m = pcall(function()
+			return Players:CreateHumanoidModelFromDescription(desc, rig)
+		end)
+		if ok and m then
+			puppet = m
+			creado = true
+		end
 	end
-	task.delay(3, function()
-		for _, p in ipairs(partes) do
-			if p and p.Parent then p:Destroy() end
+	if not puppet and char then
+		local ok, m = pcall(function() return char:Clone() end)
+		if ok and m then puppet = m end
+	end
+	if not puppet then return nil, nil end
+	puppet.Name = "SpideyPuppetLocal"
+	if desc and not creado then
+		pcall(function() puppet.Humanoid:ApplyDescription(desc) end)
+	end
+	limpiarPuppetLocal(puppet)
+	local ph = puppet:FindFirstChildOfClass("Humanoid")
+	local phrp = puppet:FindFirstChild("HumanoidRootPart")
+	if not ph or not phrp then
+		puppet:Destroy()
+		return nil, nil
+	end
+	if not creado then copiarAspectoLocal(puppet, victima) end
+	puppet.PrimaryPart = phrp
+	ph.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+	ph.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+	ph.NameDisplayDistance = 0
+	ph.HealthDisplayDistance = 0
+	ph.BreakJointsOnDeath = false
+	ph.MaxHealth = math.max(vh.MaxHealth, 100)
+	ph.Health = ph.MaxHealth
+	ph.WalkSpeed = 16
+	ph.JumpPower = 50
+	ph.UseJumpPower = true
+	ph.PlatformStand = false
+	ph.AutoRotate = true
+	pcall(function()
+		ph:SetStateEnabled(Enum.HumanoidStateType.Climbing, false)
+		ph:SetStateEnabled(Enum.HumanoidStateType.Swimming, false)
+	end)
+	local cframe = posicionPuppetLocal(victima, puppet)
+	puppet.Parent = workspace
+	puppet:PivotTo(cframe)
+	phrp.Anchored = false
+	ph:ChangeState(Enum.HumanoidStateType.Running)
+	ph:Move(Vector3.zero, false)
+	task.delay(0.35, function()
+		if ph and ph.Parent and ph.FloorMaterial ~= Enum.Material.Air then
+			pcall(function() ph:ChangeState(Enum.HumanoidStateType.Running) end)
 		end
 	end)
-	return lado
-end
-
--- Pose de la carga: horizontal, a la altura del pecho, 5.5 studs al
--- frente y con una oscilacion suave para que se vea flotando.
-local function poseCarga(raiz, t)
-	local mirar = raiz.CFrame.LookVector
-	local plano = Vector3.new(mirar.X, 0, mirar.Z)
-	if plano.Magnitude < 0.001 then plano = Vector3.new(0, 0, -1) end
-	local arriba = raiz.Position + Vector3.new(0, 1.4, 0)
-	local base = CFrame.lookAt(arriba, arriba + plano.Unit * 10)
-	local flotar = math.sin(t * 1.6) * 0.12
-	local balanceo = math.sin(t * 1.1) * math.rad(2.5)
-	return base * CFrame.new(0, flotar, -DIST_AGARRE) * CFrame.Angles(math.rad(-90), 0, math.rad(6) + balanceo)
-end
-
--- Clona la victima para TI: partes ancladas, sin scripts ni herramientas.
-local function crearClon(modelo, destino)
-	if not modelo or not modelo.Parent then return nil end
-	modelo.Archivable = true
-	local ok, clon = pcall(function() return modelo:Clone() end)
-	if not ok or not clon then return nil end
-	clon.Name = "SpideyCargado"
-	for _, d in ipairs(clon:GetDescendants()) do
-		if d:IsA("Script") or d:IsA("LocalScript") or d:IsA("Tool") then
-			d:Destroy()
-		elseif d:IsA("BillboardGui") or d:IsA("SurfaceGui") or d:IsA("Highlight") or d:IsA("ForceField") then
-			d:Destroy()
-		elseif d:IsA("JointInstance") and (d.Name == "RightGrip" or d.Name == "LeftGrip") then
-			d:Destroy()
-		end
-	end
-	local h = clon:FindFirstChildOfClass("Humanoid")
-	if h then
-		h.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
-		h.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
-		h.PlatformStand = true
-		h.AutoRotate = false
-		h.WalkSpeed = 0
-		h.JumpPower = 0
-	end
-	for _, d in ipairs(clon:GetDescendants()) do
-		if d:IsA("BasePart") then
-			d.Anchored = true
-			d.CanCollide = false
-			d.CanQuery = false
-			d.CanTouch = false
-		elseif d:IsA("ParticleEmitter") or d:IsA("Trail") or d:IsA("Beam") or d:IsA("Fire") or d:IsA("Smoke") or d:IsA("Sparkles") then
-			d.Enabled = false
-		end
-	end
-	arrancarPierna(clon)
-	if destino then clon:PivotTo(destino) end
-	return clon
+	local tracks = cargarTracks(puppet, victima)
+	return puppet, tracks
 end
 
 -----------------------------------------------------------------
@@ -3287,6 +3714,7 @@ local function aplicarESPPJugador(p)
 	-- Si estas cargando a esta persona, su cuerpo real esta oculto:
 	-- el ESP se le pondria en el sitio equivocado. Se le devuelve al soltar.
 	if agarrado and agarrado.modelo == c then return end
+	if cargandoRemoto and victimaRemota == c then return end
 	local datos = espDatos[p]
 	if datos and datos.modelo == c and datos.hl and datos.hl.Parent then return end
 	if datos then
@@ -3319,10 +3747,10 @@ function V11.AlternarESP()
 		for _, p in ipairs(Players:GetPlayers()) do
 			aplicarESPPJugador(p)
 		end
-		print("[Spidey V11.9] ESP ACTIVADO: contorno blanco + nombres (atraviesa paredes)")
+		print("[Spidey V12.0] ESP ACTIVADO: contorno blanco + nombres (atraviesa paredes)")
 		mostrarHUD("ESP ACTIVADO (J para apagar)")
 	else
-		print("[Spidey V11.9] ESP DESACTIVADO")
+		print("[Spidey V12.0] ESP DESACTIVADO")
 		mostrarHUD("ESP DESACTIVADO")
 	end
 	task.delay(2, function()
@@ -3372,7 +3800,7 @@ Players.PlayerRemoving:Connect(function(p)
 end)
 
 -----------------------------------------------------------------
--- V11.7 · LOCK (Q): contorno y linea EN CUALQUIER JUEGO.
+-- V11.7 Â· LOCK (Q): contorno y linea EN CUALQUIER JUEGO.
 -- Pones el mouse sobre una persona, pulsas Q y:
 --   * se le pone un contorno blanco a ella y a ti;
 --   * una linea blanca une a los dos (dice donde esta);
@@ -3381,7 +3809,7 @@ end)
 -- ESTO FUNCIONA EN DA HOOD Y EN CUALQUIER JUEGO: los visuales
 -- son de tu propia pantalla (Highlight + Beam locales).
 -- El APUNTADO de las balas (que lleguen aunque dispares al piso)
--- solo funciona en TU juego siendo el dueño: el servidor dirige
+-- solo funciona en TU juego siendo el dueÃ±o: el servidor dirige
 -- BodyEffects.MousePos. En un juego ajeno no hay tal servidor.
 -----------------------------------------------------------------
 local PROPIETARIOS_NOMBRES = { ["jlozadac"] = true }
@@ -3550,7 +3978,7 @@ local function parchearGunHandler()
 	end
 	gunHandlerParcheado = true
 	gunHandlerParcheando = false
-	print("[Spidey V11.9] armas nuevas (Revolver/escopetas): getAim dirigido al lock")
+	print("[Spidey V12.0] armas nuevas (Revolver/escopetas): getAim dirigido al lock")
 	return true
 end
 -- El require de un modulo del juego puede CEDER (esperando el
@@ -3631,7 +4059,7 @@ local function bloquearModeloLock(modelo)
 	lineaBeam, atYoLock, atElLock = crearLineaLock(modelo, char)
 	if hum then hum.AutoRotate = false end
 
-	-- APUNTADO CAMINO 1: TU juego siendo dueño -> nuestro servidor
+	-- APUNTADO CAMINO 1: TU juego siendo dueÃ±o -> nuestro servidor
 	-- fija BodyEffects.MousePos en cada frame (RE_Lock).
 	local puedeApuntar = (not sinServidor) and esDuenoLock
 	if puedeApuntar then
@@ -3698,7 +4126,7 @@ local function bloquearModeloLock(modelo)
 	elseif b.enviarApuntado then
 		modo = "apuntado remoto"
 	end
-	print("[Spidey V11.9] lock: " .. nombre .. " (" .. modo .. ")")
+	print("[Spidey V12.0] lock: " .. nombre .. " (" .. modo .. ")")
 	return true
 end
 
@@ -3803,32 +4231,113 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -----------------------------------------------------------------
--- MODO LOCAL: soltar el clon.
+-- V12.0 · CONTROL LOCAL: mover el clon con WASD, saltar, camara.
 -----------------------------------------------------------------
+local puppetLocal = nil
+local tracksLocal = nil
+local animLocalActual = nil
+local victimaLocal = nil
+local jugadorLocal = nil
+local ocultoLocal = nil
+local datosPropios = nil
+local camLocal = nil
+local estabaKOLocal = false
+local koLocal = nil
+local saltoLocalHecho = false
+
+local function vectorMovimiento()
+	-- Solo para pruebas automaticas: permite forzar una direccion sin
+	-- teclado fisico. En juego normal esto no existe y se usan WASD.
+	local dbg = player:GetAttribute("SpideyTestMove")
+	if typeof(dbg) == "Vector3" then
+		local v = Vector3.new(dbg.X, 0, dbg.Z)
+		if v.Magnitude > 1 then v = v.Unit end
+		return v
+	end
+	local cam = workspace.CurrentCamera
+	if not cam then return Vector3.zero end
+	local f = cam.CFrame.LookVector
+	local r = cam.CFrame.RightVector
+	f = Vector3.new(f.X, 0, f.Z)
+	r = Vector3.new(r.X, 0, r.Z)
+	if f.Magnitude < 0.01 then f = Vector3.new(0, 0, -1) else f = f.Unit end
+	if r.Magnitude < 0.01 then r = Vector3.new(1, 0, 0) else r = r.Unit end
+	local adelante = (UIS:IsKeyDown(Enum.KeyCode.W) and 1 or 0) - (UIS:IsKeyDown(Enum.KeyCode.S) and 1 or 0)
+	local lado = (UIS:IsKeyDown(Enum.KeyCode.D) and 1 or 0) - (UIS:IsKeyDown(Enum.KeyCode.A) and 1 or 0)
+	local v = f * adelante + r * lado
+	if v.Magnitude > 1 then v = v.Unit end
+	return v
+end
+
 local function soltarAgarre(motivo)
 	if not agarrado then return end
 	local a = agarrado
 	agarrado = nil
-	if a.clon and a.clon.Parent then a.clon:Destroy() end
-	restaurarModeloReal(a.modelo, a.oculto)
-	-- La pierna agarrada no vuelve: en el cuerpo real se queda oculta
-	-- (en un juego ajeno no se puede tocar el servidor). El cuerpo
-	-- conserva la pierna unida, asi que puede caminar normal.
-	if a.modelo and a.modelo.Parent then
-		ocultarPierna(a.modelo)
+	local pos, rot = nil, nil
+	if a.puppet and a.puppet.Parent then
+		local phrp = a.puppet:FindFirstChild("HumanoidRootPart")
+		if phrp then
+			pos = phrp.Position
+			rot = phrp.CFrame
+		end
+		a.puppet:Destroy()
 	end
-	if a.jugador and a.espOculto then restaurarESPDe(a.jugador, a.espOculto) end
-	-- Si el ESP estaba encendido, se le vuelve a poner al cuerpo real
-	-- (al agarrarlo se lo habia quitado para no delatar el cuerpo oculto).
+	if a.tracks then
+		for _, tr in pairs(a.tracks) do
+			pcall(function() tr:Stop(0) end)
+		end
+	end
+	restaurarModeloReal(a.modelo, a.oculto)
+	local d = a.datosPropios
+	if d and d.hrp and d.hrp.Parent then
+		d.hrp.Anchored = d.anclado
+		local destino = (pos or d.hrp.Position) + Vector3.new(0, 3, 0)
+		local yaw = 0
+		if rot then
+			local l = rot.LookVector
+			if Vector3.new(l.X, 0, l.Z).Magnitude > 0.01 then
+				yaw = math.atan2(l.X, l.Z)
+			end
+		end
+		d.hrp.CFrame = CFrame.new(destino) * CFrame.Angles(0, yaw, 0)
+		if d.hum and d.hum.Parent then
+			d.hum.WalkSpeed = d.walk
+			d.hum.JumpPower = d.jump
+			d.hum.UseJumpPower = d.use
+			d.hum.PlatformStand = d.platform
+			d.hum.AutoRotate = d.auto
+			if not d.anclado then
+				pcall(function() d.hum:ChangeState(Enum.HumanoidStateType.GettingUp) end)
+			end
+		end
+	end
+	local cam = workspace.CurrentCamera
+	if cam then
+		cam.CameraSubject = (a.cam and a.cam.subject) or (d and d.hum) or hum
+		cam.CameraType = (a.cam and a.cam.type) or Enum.CameraType.Custom
+	end
 	if a.jugador and espActivo then aplicarESPPJugador(a.jugador) end
-	print("[Spidey V11.9] agarre soltado (" .. tostring(motivo or "manual") .. ")")
+	puppetLocal = nil
+	tracksLocal = nil
+	animLocalActual = nil
+	victimaLocal = nil
+	jugadorLocal = nil
+	ocultoLocal = nil
+	datosPropios = nil
+	camLocal = nil
+	koLocal = nil
+	estabaKOLocal = false
+	saltoLocalHecho = false
+	player:SetAttribute("SpideyTestMove", nil)
+	player:SetAttribute("SpideyTestJump", nil)
+	print("[Spidey V12.0] control soltado (" .. tostring(motivo or "manual") .. ")")
 	mostrarHUD(nil)
 end
 
 local function actualizarAgarre()
 	local a = agarrado
 	if not a then return end
-	if not char or not char.Parent or not hrp or not hrp.Parent then
+	if not char or not char.Parent or not hrp or not hrp.Parent or player.Character ~= a.char then
 		soltarAgarre("reinicio local")
 		return
 	end
@@ -3841,24 +4350,69 @@ local function actualizarAgarre()
 		soltarAgarre("la victima respawneo")
 		return
 	end
-	if not m:FindFirstChildOfClass("Humanoid") then
+	local vh = m:FindFirstChildOfClass("Humanoid")
+	if not vh then
 		soltarAgarre("la victima desaparecio")
 		return
 	end
-	local delante = poseCarga(hrp, workspace:GetServerTimeNow())
-	if a.clon and a.clon.Parent then
-		a.clon:PivotTo(delante)
-	else
-		m:PivotTo(delante)
+	if vh.Health >= vh.MaxHealth - 0.5 then
+		soltarAgarre("curado")
+		return
 	end
+	if a.estabaKO then
+		local ko = valorKO(m)
+		if not ko or not ko.Parent or ko.Value == false then
+			soltarAgarre("curado")
+			return
+		end
+	end
+	local p = a.puppet
+	if not p or not p.Parent then
+		soltarAgarre("el cuerpo desaparecio")
+		return
+	end
+	local h = p:FindFirstChildOfClass("Humanoid")
+	local phrp = p:FindFirstChild("HumanoidRootPart")
+	if not h or not phrp then
+		soltarAgarre("el cuerpo desaparecio")
+		return
+	end
+	if h.Health <= 0 then
+		soltarAgarre("el cuerpo murio")
+		return
+	end
+	if phrp.Position.Y < -100 then
+		soltarAgarre("el cuerpo se cayo del mapa")
+		return
+	end
+	local cam = workspace.CurrentCamera
+	if cam then
+		if cam.CameraSubject ~= h then cam.CameraSubject = h end
+		if cam.CameraType ~= Enum.CameraType.Custom then cam.CameraType = Enum.CameraType.Custom end
+	end
+	h:Move(vectorMovimiento(), false)
+	local enSuelo = h.FloorMaterial ~= Enum.Material.Air
+	local testJump = player:GetAttribute("SpideyTestJump") == true
+	if testJump then
+		if enSuelo and not saltoLocalHecho then
+			h.Jump = true
+			saltoLocalHecho = true
+			player:SetAttribute("SpideyTestJump", false)
+		end
+	elseif UIS:IsKeyDown(Enum.KeyCode.Space) then
+		if enSuelo and not saltoLocalHecho then
+			h.Jump = true
+			saltoLocalHecho = true
+		end
+	else
+		saltoLocalHecho = false
+	end
+	actualizarAnimacionesLocal(a)
 end
 
------------------------------------------------------------------
--- API V11: agarra/suelta segun el modo.
------------------------------------------------------------------
 function V11.Agarrar()
 	if not sinServidor then
-		if player:GetAttribute("SpideyAgarrando") then
+		if cargandoRemoto then
 			RE_Cuerpo:FireServer("RELEASE")
 		else
 			RE_Cuerpo:FireServer("GRAB")
@@ -3866,42 +4420,94 @@ function V11.Agarrar()
 		return true
 	end
 	if not char or not hrp or not hum or hum.Health <= 0 then
-		print("[Spidey V11.9] no puedes agarrar sin personaje vivo")
+		print("[Spidey V12.0] no puedes controlar sin personaje vivo")
 		return false
 	end
 	if agarrado then
 		soltarAgarre("g")
 		return true
 	end
-	local modelo = buscarCuerpo()
-	if not modelo then
-		print("[Spidey V11.9] no hay ningun cuerpo debajo/cerca (Ctrl+G)")
+	if cargandoRemoto then return false end
+	local victima = buscarCuerpo()
+	if not victima then
+		print("[Spidey V12.0] no hay nadie herido/K.O. cerca (G)")
+		mostrarHUD("No hay nadie herido o K.O. cerca")
+		task.delay(1.6, function()
+			if not agarrado and not cargandoRemoto then mostrarHUD(nil) end
+		end)
 		return false
 	end
 
-	local delante = poseCarga(hrp, workspace:GetServerTimeNow())
-	-- El clon se crea ANTES de ocultar el real (si no, saldria invisible).
-	local clon = crearClon(modelo, delante)
-	if not clon then
-		print("[Spidey V11.9] no se pudo clonar la victima")
+	local puppet, tracks = crearPuppetLocal(victima)
+	if not puppet then
+		print("[Spidey V12.0] no se pudo crear el cuerpo controlable")
 		return false
 	end
-	local oculto = ocultarModeloReal(modelo)
-	local jugador = Players:GetPlayerFromCharacter(modelo)
-	local a = {
-		modelo = modelo,
-		jugador = jugador,
-		clon = clon,
-		oculto = oculto,
-	}
-	if jugador then
-		a.espOculto = ocultarESPDe(jugador)
+	local phrp = puppet:FindFirstChild("HumanoidRootPart")
+	local ph = puppet:FindFirstChildOfClass("Humanoid")
+	if not phrp or not ph then
+		puppet:Destroy()
+		return false
 	end
-	clon.Parent = workspace
-	agarrado = a
-	local _, ladoPierna = partesPierna(modelo)
-	print("[Spidey V11.9] agarrado de la pierna " .. tostring(ladoPierna) .. " (local): " .. modelo.Name .. " | pierna arrancada")
-	mostrarHUD("CARGANDO: " .. modelo.Name .. "   |   G = soltar")
+	local oculto = ocultarModeloReal(victima)
+	local jugador = Players:GetPlayerFromCharacter(victima)
+	local ko = valorKO(victima)
+	local antesAnclado = hrp.Anchored
+	local datos = {
+		char = char,
+		hrp = hrp,
+		hum = hum,
+		anclado = antesAnclado,
+		walk = hum.WalkSpeed,
+		jump = hum.JumpPower,
+		use = hum.UseJumpPower,
+		platform = hum.PlatformStand,
+		auto = hum.AutoRotate,
+		cframe = hrp.CFrame,
+	}
+	hrp.Anchored = true
+	hum.WalkSpeed = 0
+	hum.JumpPower = 0
+	hum.UseJumpPower = true
+	hum.PlatformStand = true
+	hum.AutoRotate = false
+	local abajo = phrp.Position - Vector3.new(0, 13, 0)
+	hrp.CFrame = CFrame.lookAt(abajo, abajo + Vector3.new(0, 10, 0))
+
+	local cam = workspace.CurrentCamera
+	local camAnt = { subject = cam and cam.CameraSubject, type = cam and cam.CameraType }
+	if cam then
+		cam.CameraSubject = ph
+		cam.CameraType = Enum.CameraType.Custom
+	end
+
+	puppetLocal = puppet
+	tracksLocal = tracks
+	animLocalActual = nil
+	victimaLocal = victima
+	jugadorLocal = jugador
+	ocultoLocal = oculto
+	datosPropios = datos
+	camLocal = camAnt
+	koLocal = ko
+	estabaKOLocal = (ko and ko.Value == true) or false
+	saltoLocalHecho = false
+	agarrado = {
+		modelo = victima,
+		jugador = jugador,
+		puppet = puppet,
+		tracks = tracks,
+		oculto = oculto,
+		datosPropios = datos,
+		cam = camAnt,
+		char = char,
+		estabaKO = estabaKOLocal,
+		animActual = nil,
+	}
+	if bloqueado and bloqueado.modelo == victima then V11.QuitarLock() end
+	local nombre = jugador and jugador.Name or victima.Name
+	mostrarHUD("CONTROLANDO: " .. nombre .. "   |   G = soltar")
+	print("[Spidey V12.0] controlando (local): " .. victima.Name .. " | G = soltar")
 	return true
 end
 
@@ -3914,114 +4520,149 @@ function V11.Soltar(motivo)
 end
 
 -----------------------------------------------------------------
--- MODO SERVIDOR: el servidor manda; aqui solo se muestra el HUD.
+-- MODO SERVIDOR: el servidor crea y mueve el cuerpo; aqui solo
+-- mandamos las teclas, seguimos con la camara y mostramos el HUD.
 -----------------------------------------------------------------
-local function actualizarCargaRemota()
-	if sinServidor then return end
-	local v = player:GetAttribute("SpideyAgarrando")
-	local antes = cargandoRemoto
-	cargandoRemoto = type(v) == "string" and v ~= ""
+local puppetRemoto = nil
+local camRemota = nil
+local ultimoEnvioRemoto = 0
+
+local function detenerRemotoLocal(motivo)
+	if not cargandoRemoto and not puppetRemoto and not camRemota then return end
+	cargandoRemoto = false
+	puppetRemoto = nil
 	victimaRemota = nil
-	if cargandoRemoto then
-		for _, p in ipairs(Players:GetPlayers()) do
-			if p.Character and p.Character.Name == v then
-				victimaRemota = p.Character
-				break
-			end
-		end
-		if not victimaRemota then
-			victimaRemota = workspace:FindFirstChild(v, true)
-		end
-		mostrarHUD("CARGANDO: " .. v .. "   |   G = soltar")
-	elseif antes then
-		mostrarHUD(nil)
+	local cam = workspace.CurrentCamera
+	if cam then
+		cam.CameraSubject = (camRemota and camRemota.subject) or hum or (player.Character and player.Character:FindFirstChildOfClass("Humanoid"))
+		cam.CameraType = (camRemota and camRemota.type) or Enum.CameraType.Custom
 	end
+	camRemota = nil
+	mostrarHUD(nil)
+	print("[Spidey V12.0] control remoto terminado (" .. tostring(motivo or "manual") .. ")")
 end
 
 if not sinServidor then
-	player:GetAttributeChangedSignal("SpideyAgarrando"):Connect(actualizarCargaRemota)
-	actualizarCargaRemota()
-	RE_Cuerpo.OnClientEvent:Connect(function(accion, modelo)
+	RE_Cuerpo.OnClientEvent:Connect(function(accion, a, b)
 		if accion == "NO" then
-			mostrarHUD("No hay ningun cuerpo debajo/cerca")
-			task.delay(1.5, function()
-				if not cargandoRemoto then mostrarHUD(nil) end
+			mostrarHUD("No hay nadie herido o K.O. cerca")
+			task.delay(1.6, function()
+				if not cargandoRemoto and not agarrado then mostrarHUD(nil) end
 			end)
-		elseif accion == "OK" then
-			victimaRemota = modelo
+		elseif accion == "START" then
+			local p = a
+			if typeof(p) == "Instance" and p:IsA("Model") then
+				cargandoRemoto = true
+				puppetRemoto = p
+				victimaRemota = nil
+				if type(b) == "string" then
+					for _, pl in ipairs(Players:GetPlayers()) do
+						if pl.Character and pl.Character.Name == b then
+							victimaRemota = pl.Character
+							break
+						end
+					end
+					if not victimaRemota then
+						victimaRemota = workspace:FindFirstChild(b, true)
+					end
+				end
+				local cam = workspace.CurrentCamera
+				camRemota = { subject = cam and cam.CameraSubject, type = cam and cam.CameraType }
+				local ph = p:WaitForChild("Humanoid", 5)
+				if cam and ph then
+					cam.CameraSubject = ph
+					cam.CameraType = Enum.CameraType.Custom
+				end
+				mostrarHUD("CONTROLANDO: " .. tostring(b or p.Name) .. "   |   G = soltar")
+			end
+		elseif accion == "STOP" then
+			-- El motivo viene como segundo argumento (a), no como b.
+			detenerRemotoLocal(a)
 		end
 	end)
-
-	-- Si el servidor te esta cargando a TI, muestralo tambien en tu
-	-- pantalla: asi la victima siente que la levantaron (y no puede
-	-- hacer nada hasta que la suelten o respawnee).
-	local function observarCargaVictima(c)
-		if not c then return end
-		local function ver()
-			local v = c:GetAttribute("SpideyCargadoPor")
-			if v then
-				mostrarHUD("TE ESTAN CARGANDO: " .. tostring(v))
-			else
-				mostrarHUD(nil)
-			end
-		end
-		c:GetAttributeChangedSignal("SpideyCargadoPor"):Connect(ver)
-		ver()
-	end
-	if char then observarCargaVictima(char) end
-	player.CharacterAdded:Connect(observarCargaVictima)
 end
 
+RunService.RenderStepped:Connect(function(dt)
+	if cargandoRemoto then
+		if not puppetRemoto or not puppetRemoto.Parent then
+			detenerRemotoLocal("el cuerpo desaparecio")
+			return
+		end
+		local ph = puppetRemoto:FindFirstChildOfClass("Humanoid")
+		if not ph then
+			detenerRemotoLocal("el cuerpo desaparecio")
+			return
+		end
+		local cam = workspace.CurrentCamera
+		if cam then
+			if cam.CameraSubject ~= ph then cam.CameraSubject = ph end
+			if cam.CameraType ~= Enum.CameraType.Custom then cam.CameraType = Enum.CameraType.Custom end
+		end
+		ultimoEnvioRemoto = ultimoEnvioRemoto + dt
+		if ultimoEnvioRemoto >= 1 / 30 then
+			ultimoEnvioRemoto = 0
+			RE_Cuerpo:FireServer("MOVE", vectorMovimiento(), false)
+		end
+		return
+	end
+	if agarrado then
+		actualizarAgarre()
+	end
+end)
+
 -----------------------------------------------------------------
--- Teclas: Ctrl+G agarrar / G soltar · Q lock · J ESP
--- Z ya no hace nada: el desmembrado se elimino en V11.7.
+-- Teclas: G controlar/soltar · Q lock · J ESP · Espacio saltar
+-- Z ya no hace nada. El sistema viejo de arrancar la pierna se elimino.
 -----------------------------------------------------------------
 UIS.InputBegan:Connect(function(input, gpe)
 	if UIS:GetFocusedTextBox() then return end
 	local kc = input.KeyCode
-	-- Q funciona en cualquier juego: los visuales del lock son
-	-- locales. En juegos ajenos queda solo visual (sin balas).
+	-- Q funciona en cualquier juego: los visuales del lock son locales.
 	if kc == Enum.KeyCode.Q then
 		V11.AlternarLock()
 		return
 	end
-	-- Disparo con alguien lockeado (apuntado remoto): manda YA la
-	-- posicion de la cabeza para que el disparo de este instante
-	-- salga hacia el objetivo, no hacia donde apunta el mouse.
+	-- G se procesa aunque el juego use G para otra cosa: el usuario
+	-- pidio explicitamente que el control sea con G.
+	if kc == Enum.KeyCode.G then
+		if sinServidor then
+			if agarrado then soltarAgarre("g") else V11.Agarrar() end
+		else
+			if cargandoRemoto then
+				RE_Cuerpo:FireServer("RELEASE")
+			else
+				V11.Agarrar()
+			end
+		end
+		return
+	end
+	-- Disparo con alguien lockeado: manda YA la posicion de la cabeza.
 	if input.UserInputType == Enum.UserInputType.MouseButton1 and bloqueado and bloqueado.enviarApuntado then
 		bloqueado.enviarApuntado()
+	end
+	-- Espacio se procesa antes de gpe: en Da Hood el juego usa
+	-- Espacio para saltar y lo marcaria como procesado. Aqui el salto
+	-- es para el cuerpo que estas controlando.
+	if kc == Enum.KeyCode.Space and cargandoRemoto then
+		RE_Cuerpo:FireServer("JUMP")
+		return
 	end
 	if gpe then return end
 	if kc == Enum.KeyCode.J then
 		V11.AlternarESP()
-	elseif kc == Enum.KeyCode.G then
-		local ctrl = UIS:IsKeyDown(Enum.KeyCode.LeftControl) or UIS:IsKeyDown(Enum.KeyCode.RightControl)
-		if sinServidor then
-			if agarrado then soltarAgarre("g") elseif ctrl then V11.Agarrar() end
-		else
-			if cargandoRemoto then
-				RE_Cuerpo:FireServer("RELEASE")
-			elseif ctrl then
-				V11.Agarrar()
-			end
-		end
 	end
 end)
 
--- RenderStepped: solo el modo local necesita fijar la posicion cada
--- frame (el servidor ya mueve el cuerpo real en el modo servidor).
-RunService.RenderStepped:Connect(actualizarAgarre)
-
 player.CharacterRemoving:Connect(function()
 	if agarrado then soltarAgarre("reinicio local") end
+	if cargandoRemoto then detenerRemotoLocal("reinicio local") end
 	cargandoRemoto = false
 	victimaRemota = nil
 	mostrarHUD(nil)
 end)
 
-
 -----------------------------------------------------------------
--- DEPURACIÓN
+-- DEPURACIÃN
 -----------------------------------------------------------------
 function _G.SpideyProbar(nombre, t)
 	nombre = tostring(nombre or "A"):upper()
@@ -4061,6 +4702,9 @@ function _G.SpideyInfo()
 		"esp=" .. tostring(espActivo),
 		"agarrado=" .. tostring(agarrado and agarrado.modelo and agarrado.modelo.Name),
 		"cargandoRemoto=" .. tostring(cargandoRemoto),
+		"puppetLocal=" .. tostring(puppetLocal and puppetLocal.Name),
+		"puppetRemoto=" .. tostring(puppetRemoto and puppetRemoto.Name),
+		"victimaRemota=" .. tostring(victimaRemota and victimaRemota.Name),
 	}
 	for modelo, s in pairs(secuencias) do
 		local transcurrido = s.pausa and s.tFijo or (workspace:GetServerTimeNow() - s.inicio)
