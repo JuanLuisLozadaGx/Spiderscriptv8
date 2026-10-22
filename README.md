@@ -1,24 +1,24 @@
-# Spiderscript V11.4 🕷️
+# Spiderscript V11.5 🕷️
 
 Sistema **Spider-Man completo** (telaraña, física de péndulo, trepa, cámara,
 sonidos, GUI y animaciones A/B) **+ agarre, ESP y LOCK** en **un solo archivo
 combinado**: sirve como script de servidor y como LocalScript/executor.
 Se adapta solo con `RunService:IsServer()`.
 
-> **Novedades V11.4 (fix del lock):**
-> - **ARREGLADO:** en V11.3 el contorno blanco y la línea del lock **no salían
->   en Da Hood ni en juegos ajenos**, porque estaban amarrados al script de
->   servidor. Eso estaba mal: los visuales son de tu propia pantalla, así que
->   ahora **salen en CUALQUIER juego**.
-> - **LOCK (Q):** contorno blanco en ti y en el objetivo + línea blanca entre
->   los dos. Tu **cámara NO se mueve**; tu personaje gira hacia el enemigo.
->   Q otra vez lo quita.
-> - El **apuntado de balas** (que lleguen al objetivo aunque dispares al piso)
->   sigue siendo exclusivo de **tu juego siendo el dueño**: eso lo hace el
->   servidor, y en un juego ajeno ningún executor puede hacerlo.
-> - **Trepar con X** (antes era Shift).
-> - **Z eliminado:** el desmembrado se quitó por pedido del dueño (no servía
->   en Da Hood). Ya no existe ni la tecla ni el código.
+> **Novedades V11.5 (las balas ya llegan en Da Hood):**
+> - **APUNTADO EN DA HOOD Y JUEGOS CON SUS ARMAS:** Da Hood deja que tu cliente
+>   le diga al servidor dónde apuntas (manda `MainRemoteEvent
+>   "DEAHOODMOUSEPOSx3^3"` con `Mouse.Hit.p` cada Heartbeat y el servidor lo
+>   copia **sin validar** — comprobado en su Helper). Con alguien lockeado, el
+>   script manda por **ese mismo remoto** la posición de la **cabeza** del
+>   objetivo, en cada frame (RenderStepped + Heartbeat) y en cada disparo.
+>   Nuestra conexión se registra **después** que la del juego, así que nuestro
+>   valor es el **último en escribirse**: las balas le dan a la cabeza o al
+>   torso aunque dispares al piso o al aire.
+> - Nota: las escopetas mantienen su dispersión (la agrega el propio juego).
+>   Si hay una pared de por medio, la bala da en la pared (normal).
+> - (V11.4 ya había arreglado el contorno blanco y la línea: siguen funcionando
+>   en cualquier juego.)
 
 ## Loadstring (executor / potassium)
 
@@ -44,16 +44,16 @@ Si tu ejecutor cachea la URL, usa la URL por commit:
 - **Los visuales (contorno blanco + línea blanca) funcionan SIEMPRE**: son un
   `Highlight` y un `Beam` creados en **tu propio cliente**. Da igual el juego:
   Da Hood, cualquier otro, tu copia. Nadie más los ve, solo tú.
-- **El apuntado de balas es aparte.** Las armas de Da Hood disparan hacia
-  `Character.BodyEffects.MousePos` (un valor que el juego actualiza cada frame
-  con la posición del mouse). Cuando lockeas en **tu juego siendo el dueño**, el
-  **servidor** mantiene ese valor apuntando al torso del objetivo: da igual
-  dónde dispares, la bala sale hacia él.
-- En **Da Hood real u otro juego ajeno** ese valor lo controla el servidor del
-  juego, y ningún executor puede tocarlo: por eso ahí el lock es **solo visual**.
-  El HUD te avisa con `(aqui solo visual)`.
-- El permiso de apuntado se valida **en el servidor** (dueño del place, o
-  nombre/ID en `PROPIETARIOS_NOMBRES` / `PROPIETARIOS_IDS`; grupo → rango 250+).
+- **El apuntado en Da Hood / juegos con sus armas** funciona por el remoto del
+  propio juego: mientras lockeas, el script manda la posición de la cabeza del
+  objetivo por `MainRemoteEvent` con el subject `"DEAHOODMOUSEPOSx3^3"`. El
+  Helper del juego la copia a `BodyEffects.MousePos` sin validar, y las armas
+  disparan hacia ese punto. Probado en Studio contra el juego compitiendo en
+  cada frame: nuestro valor gana (144 envíos en 1.2 s, `MousePos` final = cabeza).
+- **El apuntado en TU juego** (dueño) va por `RE_Lock`: nuestro servidor fija
+  `BodyEffects.MousePos` al objetivo en cada frame. Se valida dueño en el
+  servidor (nombre/ID en `PROPIETARIOS_NOMBRES` / `PROPIETARIOS_IDS`;
+  grupo → rango 250+).
 - El lock se suelta solo si el objetivo muere, respawnea o se va; también si
   tú mueres o respawneas.
 - Mientras lockeas, tu personaje gira hacia el objetivo (los demás ven que lo
@@ -157,7 +157,7 @@ ajenos (Da Hood incluido). Lo importante que se comprobó en vivo:
 > executor. También se comprobó que un executor **no puede** crear
 > `ServerScriptService` ni subir assets en runtime.
 
-Con eso claro, V11.4 mantiene las **3 capas** para que siempre se vea algo:
+Con eso claro, V11.5 mantiene las **3 capas** para que siempre se vea algo:
 
 | Capa | Qué usa | Dónde se ve |
 |------|---------|-------------|
