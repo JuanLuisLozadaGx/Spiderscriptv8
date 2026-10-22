@@ -1,27 +1,33 @@
 --[[
-	SPIDER V8 · TODO EL SISTEMA EN UN SOLO SCRIPT COMBINADO
+	SPIDER V10 · TODO EL SISTEMA EN UN SOLO SCRIPT COMBINADO
 	Servidor + Cliente en el mismo archivo. Se adapta solo.
 
-	INSTALACION EN TU JUEGO (para que TODOS vean tus movimientos):
+	QUE HACE V10 (modo universal para Da Hood y cualquier juego):
+	  Las animaciones solo se replican por el Animator, y Roblox solo
+	  deja cargar animaciones del DUEÑO del juego (o de Roblox).
+	  Comprobado en vivo: las animaciones de otros usuarios dan
+	  Length = 0 y no se ven aunque las ejecute el mejor executor.
+	  Por eso V10 usa 3 capas para que TODOS te vean:
+	   1) ANIM_IDS     tus animaciones subidas: cargan en TUS juegos
+	                   (tu copia de Da Hood, tus places). Todos las ven.
+	   2) ANIM_ROBLOX  emotes de Roblox: cargan en CUALQUIER juego.
+	                   A usa "Point" (apuntar) y B usa "Fall" (pose aerea).
+	   3) GIRO_FISICO  el backflip de B gira el cuerpo con fisica REAL:
+	                   la fisica de tu personaje si se replica a todos,
+	                   asi que todos ven el giro en Da Hood y en
+	                   cualquier juego, sin instalar nada.
+	  Las poses finas de brazos/piernas son locales por limite del
+	  motor: un executor no puede subir animaciones ni crear scripts
+	  de servidor (el servidor no existe en el cliente).
+
+	INSTALACION OPCIONAL EN TU JUEGO (poses exactas para todos):
 	  Son 2 pegados de ESTE MISMO archivo:
 	  1) ServerScriptService > Insert Object > "Script" (NO LocalScript)
-	     llamalo SpideyV8 y pega este archivo completo.
-	  2) StarterPlayer > StarterPlayerScripts > Insert Object >
-	     "LocalScript" llamalo SpideyClienteV8 y pega este MISMO archivo.
-	  3) Publica el juego. El archivo detecta solo donde corre:
-	     - en el servidor valida telaranas y difunde por RE_Anim
-	     - en cada cliente corre la jugabilidad y aplica en pantalla
-	       las animaciones de TODOS los jugadores del servidor.
-	  (Un script de servidor no puede crear codigo cliente en runtime:
-	   por eso el paso 2 es necesario; es limite del motor, no del script.)
-
-	TAMBIEN FUNCIONA SOLO COMO LOCALSCRIPT / EJECUTADO EN EXECUTOR:
-	  Corre solo la mitad cliente: tu ves tus animaciones y tu fisica.
-	  Si el juego YA tiene la instalacion de arriba, todos te ven y un
-	  candado _G evita la doble ejecucion. Si el juego NO la tiene, los
-	  demas solo ven tu columpio (movimiento) pero no las poses: ningun
-	  LocalScript del mundo puede replicar poses; la unica via real es
-	  tener la mitad servidor instalada en el juego.
+	     llamado SpideyV10 y pega este archivo completo.
+	  2) StarterPlayer > StarterPlayerScripts > "LocalScript"
+	     llamado SpideyClienteV10 y pega este MISMO archivo.
+	  3) Publica. El servidor difunde las poses exactas por RE_Anim y
+	     TODOS los jugadores del servidor las ven completas.
 
 	ANIMACIONES:
 	  A (1.833 s): disparo arriba + tiron + cuclillas + recupero
@@ -67,10 +73,10 @@ local RE_Efecto = remoto("RE_Efecto")
 local RE_Anim = remoto("RE_Anim")
 
 -- La mitad cliente de ESTE MISMO archivo debe estar en
--- StarterPlayer.StarterPlayerScripts.SpideyClienteV8 (LocalScript).
+-- StarterPlayer.StarterPlayerScripts.SpideyClienteV10 (LocalScript).
 -- Un Script de servidor no puede crear codigo cliente en runtime.
-if not game:GetService("StarterPlayer").StarterPlayerScripts:FindFirstChild("SpideyClienteV8") then
-	warn("[Spidey V8] Falta el LocalScript SpideyClienteV8 (pegar este mismo archivo en StarterPlayerScripts)")
+if not game:GetService("StarterPlayer").StarterPlayerScripts:FindFirstChild("SpideyClienteV10") then
+	warn("[Spidey V10] Falta el LocalScript SpideyClienteV10 (pegar este mismo archivo en StarterPlayerScripts)")
 end
 
 local CFG = {
@@ -299,16 +305,16 @@ Players.PlayerAdded:Connect(function(player)
 	end)
 end)
 
-print("[Spidey V8] Servidor listo; valida telaranas y difunde animaciones por RE_Anim")
+print("[Spidey V10] Servidor listo; valida telaranas y difunde animaciones por RE_Anim")
 
 else
 --=================================================================
 --  MITAD CLIENTE: telarana, fisica y animaciones A/B procedurales
 --=================================================================
 -- Candado: si otra copia de este script ya corre en este cliente, sale.
-if _G.__SPIDEY_V8_ACTIVO then return end
-_G.__SPIDEY_V8_ACTIVO = true
-print("[Spidey V8] cargando...")
+if _G.__SPIDEY_V10_ACTIVO then return end
+_G.__SPIDEY_V10_ACTIVO = true
+print("[Spidey V10] cargando...")
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
@@ -325,21 +331,29 @@ local mouse = player:GetMouse()
 -- (juego ajeno o modo executor/LocalScript), crea todo en local y
 -- funciona en modo solitario.
 local RE = nil
+local sinServidor = false
 local tEspera = os.clock()
-while not RS:FindFirstChild("SpideyRemotos") and os.clock() - tEspera < 8 do
+while not RS:FindFirstChild("SpideyRemotos") and os.clock() - tEspera < 3 do
 	task.wait(0.1)
 end
 RE = RS:FindFirstChild("SpideyRemotos")
 if not RE then
-	print("[Spidey V8] sin servidor en este juego: modo local (las poses solo las ves tu)")
+	sinServidor = true
+	print("[Spidey V10] sin servidor: MODO UNIVERSAL (giros visibles para todos por fisica)")
 	RE = Instance.new("Folder")
 	RE.Name = "SpideyRemotos"
 	RE.Parent = RS
 end
 
 local function asegurarRemoto(nombre)
-	local r = RE:WaitForChild(nombre, 6)
+	local r
+	if sinServidor then
+		r = RE:FindFirstChild(nombre)
+	else
+		r = RE:WaitForChild(nombre, 6)
+	end
 	if not r then
+		sinServidor = true
 		r = Instance.new("RemoteEvent")
 		r.Name = nombre
 		r.Parent = RE
@@ -805,6 +819,29 @@ end)()
 
 local RESET_CLIC = 4
 
+-- ============================================================
+-- CAPA VISIBLE V10 (lo que TODOS los jugadores ven)
+-- ============================================================
+-- ANIM_IDS: tus animaciones subidas. Solo CARGAN en juegos cuyo
+-- dueño seas tu (tu copia de Da Hood, tus places). Pega aqui los IDs.
+--   Ejemplo:  local ANIM_IDS = { A = 88979567248071, B = 0 }
+local ANIM_IDS = {
+	A = 0,
+	B = 0,
+}
+-- ANIM_ROBLOX: emotes de Roblox. Cargan en CUALQUIER juego y todos
+-- los ven. "Point" (apuntar) encaja con el disparo hacia arriba de A.
+-- B usa "Fall" (pose aerea) mientras el cuerpo gira con fisica.
+local ANIM_ROBLOX = {
+	A = 507770453,
+	B = 507767968,
+}
+-- GIRO_FISICO: en juegos SIN servidor Spidey, el backflip de B se
+-- gira con fisica real (se replica a todos los clientes).
+local GIRO_FISICO = true
+-- ANIM_LOOP: repetir la animacion visible si dura menos que A/B.
+local ANIM_LOOP = { A = false, B = true }
+
 local CFG = {
 	ALCANCE = 165,
 	CUERDA_MIN = 8,
@@ -1159,6 +1196,10 @@ local redesAjenas = {}    -- [jugador] = {parte, beam, att, modelo}
 local efectosVivos = {}
 local conexionVigilancia = nil
 local soltarRope
+local giroFisicoActivo = false
+local ultimoFisX, ultimoFisT = nil, nil
+local tracksVisibles = {}
+local animProbandose = false
 
 -----------------------------------------------------------------
 -- UTILIDADES
@@ -1347,6 +1388,109 @@ end
 -----------------------------------------------------------------
 -- SECUENCIAS
 -----------------------------------------------------------------
+-- CAPA VISIBLE: los AnimationTrack del Animator SI se replican a todos
+-- los clientes (asi funcionan el Animate del juego y los emotes). Roblox
+-- solo deja cargar animaciones del dueño del juego o de Roblox; por eso
+-- se prueba cada ID y se usa el primero que cargue de verdad (Length > 0).
+local function candidatosAnim(nombre)
+	local lista = {}
+	local propio = ANIM_IDS[nombre]
+	if propio and propio > 0 then table.insert(lista, propio) end
+	local roblox = ANIM_ROBLOX[nombre]
+	if roblox and roblox > 0 then table.insert(lista, roblox) end
+	return lista
+end
+
+local function pararTrackAnim(nombre)
+	local t = tracksVisibles[nombre]
+	if t then
+		tracksVisibles[nombre] = nil
+		pcall(function() t:Stop(0.1) end)
+	end
+end
+
+local function limpiarTracksAnim()
+	for nombre in pairs(tracksVisibles) do
+		local t = tracksVisibles[nombre]
+		tracksVisibles[nombre] = nil
+		pcall(function() t:Stop(0.1) end)
+		task.delay(0.2, function()
+			pcall(function() t:Destroy() end)
+		end)
+	end
+end
+
+local function terminarGiroFisico()
+	if not giroFisicoActivo then return end
+	giroFisicoActivo = false
+	ultimoFisX, ultimoFisT = nil, nil
+	pcall(function()
+		if hrp then hrp.AssemblyAngularVelocity = Vector3.zero end
+		if hum then hum:ChangeState(Enum.HumanoidStateType.Freefall) end
+	end)
+end
+
+local intentosAnim = 0
+local function probarAnimaciones()
+	if animProbandose or not hum or not char then return end
+	if not sinServidor then
+		-- aun no sabemos si hay servidor; reintenta unas veces
+		intentosAnim = intentosAnim + 1
+		if intentosAnim <= 6 then
+			task.delay(1.5, probarAnimaciones)
+		end
+		return
+	end
+	animProbandose = true
+	task.spawn(function()
+		local an = hum:FindFirstChildOfClass("Animator")
+		if not an then
+			animProbandose = false
+			return
+		end
+		for _, nombre in ipairs({ "A", "B" }) do
+			pararTrackAnim(nombre)
+			for _, id in ipairs(candidatosAnim(nombre)) do
+				local ok, track = pcall(function()
+					local a = Instance.new("Animation")
+					a.AnimationId = "rbxassetid://" .. tostring(id)
+					return an:LoadAnimation(a)
+				end)
+				if ok and track then
+					track.Priority = Enum.AnimationPriority.Action
+					track.Looped = (ANIM_LOOP[nombre] == true)
+					-- Roblox carga el asset en segundo plano: esperar a que
+					-- Length sea mayor que 0 (si no es del dueño, se queda en 0).
+					local espera = 0
+					while track.Length <= 0 and espera < 2.5 do
+						task.wait(0.1)
+						espera = espera + 0.1
+					end
+					if track.Length > 0 then
+						tracksVisibles[nombre] = track
+						print(string.format("[Spidey V10] %s visible para TODOS (id %d, %.2fs)", nombre, id, track.Length))
+						break
+					else
+						pcall(function() track:Destroy() end)
+					end
+				end
+			end
+			if not tracksVisibles[nombre] and candidatosAnim(nombre)[1] then
+				print("[Spidey V10] " .. nombre .. ": ninguna animacion visible carga en este juego (queda la fisica/poses locales)")
+			end
+		end
+		animProbandose = false
+	end)
+end
+
+local function reproducirTrackAnim(nombre)
+	if not sinServidor then return end
+	local t = tracksVisibles[nombre]
+	if t then
+		pcall(function() t:Play(0.05) end)
+	end
+end
+
 local function detenerSecuencia(modelo)
 	local s = secuencias[modelo]
 	if not s then return end
@@ -1355,6 +1499,8 @@ local function detenerSecuencia(modelo)
 	if modelo == char then
 		poseSpideyActiva = true
 		if hrp then hrp:SetAttribute("SpideyAnim", nil) end
+		pararTrackAnim(s.nombre)
+		terminarGiroFisico()
 	end
 	-- La telaraña NO se quita aquí: puede seguir activa después de que la
 	-- animación termine. Se quita al recibir STOP o al soltar.
@@ -1384,6 +1530,7 @@ local function iniciarSecuencia(modelo, nombre, inicio, jugador, esLocal)
 	if modelo == char then
 		poseSpideyActiva = false
 		if hrp then hrp:SetAttribute("SpideyAnim", nombre) end
+		reproducirTrackAnim(nombre)
 	end
 	return true
 end
@@ -1867,6 +2014,32 @@ RunService.PreSimulation:Connect(function()
 						peso = math.min(peso, math.max(queda, 0) / 0.12)
 					end
 				end
+				-- MODO UNIVERSAL: giro FISICO real (la fisica se replica a todos)
+				if s.esLocal and sinServidor and GIRO_FISICO and hrp and hum and pose.Root then
+					if math.abs(pose.Root.x) > 45 then
+						local objetivoX = pose.Root.x
+						local dtF = math.max(ahora - (ultimoFisT or (ahora - 0.016)), 0.001)
+						local vel = (objetivoX - (ultimoFisX or objetivoX)) / dtF
+						ultimoFisT, ultimoFisX = ahora, objetivoX
+						if math.abs(vel) > 25 then
+							pcall(function()
+								hrp.AssemblyAngularVelocity = hrp.CFrame.RightVector * math.rad(vel)
+							end)
+							if not giroFisicoActivo then
+								giroFisicoActivo = true
+								pcall(function()
+									hum:ChangeState(Enum.HumanoidStateType.Physics)
+									hrp.AssemblyLinearVelocity = hrp.AssemblyLinearVelocity + Vector3.new(0, 42, 0)
+								end)
+							end
+						elseif giroFisicoActivo then
+							terminarGiroFisico()
+						end
+						seqTmp.Root.x = 0 -- anula la rotacion visual para no girar dos veces
+					elseif giroFisicoActivo then
+						terminarGiroFisico()
+					end
+				end
 				Pose.AplicarExacto(modelo, pose, peso)
 			end
 		end
@@ -2066,6 +2239,7 @@ local function limpiarTodo()
 		if p.Parent then p:Destroy() end
 	end
 	table.clear(efectosVivos)
+	limpiarTracksAnim()
 	limpiarRedesAjenas()
 
 	if char then
@@ -2097,6 +2271,7 @@ local function alNacer(c)
 	hrp:SetAttribute("SpideyAnim", nil)
 	Camara.Iniciar(workspace.CurrentCamera, hum)
 	conexionVigilancia = vigilarAterrizaje()
+	probarAnimaciones()
 
 	asegurarTool()
 	buscarTool()
@@ -2144,7 +2319,7 @@ local function alNacer(c)
 	task.wait(1)
 	if player.Character == c then
 		crearGUI()
-		print("[Spidey V8] cliente listo | rig=" .. tostring(Pose.Tipo(char)) .. " | A/B procedurales")
+		print("[Spidey V10] cliente listo | rig=" .. tostring(Pose.Tipo(char)) .. " | A/B procedurales")
 	end
 end
 
@@ -2169,26 +2344,16 @@ function _G.SpideyProbar(nombre, t)
 	if not SEC[nombre] then return false, "secuencia inexistente" end
 	if not char then return false, "sin personaje" end
 
-	detenerSecuencia(char)
-	Pose.Cachear(char)
-	Pose.UsarAditivo(char)
-
-	local s = {
-		nombre = nombre,
-		datos = SEC[nombre],
-		inicio = workspace:GetServerTimeNow(),
-		jugador = player,
-		esLocal = true,
-	}
-	if t ~= nil then
+	-- Usa la MISMA ruta que el juego real: activa la capa visible
+	-- (Animator/fisica) ademas de las poses locales.
+	local ok = iniciarSecuencia(char, nombre, workspace:GetServerTimeNow(), player, true)
+	local s = secuencias[char]
+	if ok and s and t ~= nil then
 		s.pausa = true
 		s.tFijo = math.clamp(tonumber(t) or 0, 0, SEC[nombre].duracion)
 		s.inicio = s.inicio - s.tFijo
 	end
-	secuencias[char] = s
-	poseSpideyActiva = false
-	if hrp then hrp:SetAttribute("SpideyAnim", nombre) end
-	return true
+	return ok
 end
 
 function _G.SpideySoltar()
