@@ -679,11 +679,18 @@ local function arrancarPierna(modelo)
 	for _, u in ipairs(uniones) do
 		u:Destroy()
 	end
+	local escombros = workspace:FindFirstChild("SpideyEscombros")
+	if not escombros then
+		escombros = Instance.new("Folder")
+		escombros.Name = "SpideyEscombros"
+		escombros.Parent = workspace
+	end
 	for _, p in ipairs(partes) do
 		p.Anchored = false
 		p.CanCollide = false
 		p.CanQuery = false
 		p.CanTouch = false
+		p.Parent = escombros
 	end
 	local raiz = partes[1]
 	if raiz then
@@ -3144,11 +3151,18 @@ local function arrancarPierna(modelo)
 	for _, u in ipairs(uniones) do
 		u:Destroy()
 	end
+	local escombros = workspace:FindFirstChild("SpideyEscombros")
+	if not escombros then
+		escombros = Instance.new("Folder")
+		escombros.Name = "SpideyEscombros"
+		escombros.Parent = workspace
+	end
 	for _, p in ipairs(partes) do
 		p.Anchored = false
 		p.CanCollide = false
 		p.CanQuery = false
 		p.CanTouch = false
+		p.Parent = escombros
 	end
 	local raiz = partes[1]
 	if raiz then
