@@ -1,16 +1,18 @@
-# Spiderscript V11.2 🕷️
+# Spiderscript V11.3 🕷️
 
 Sistema **Spider-Man completo** (telaraña, física de péndulo, trepa, cámara,
-sonidos, GUI y animaciones A/B) **+ agarre, desmembrado y ESP** en **un solo
-archivo combinado**: sirve como script de servidor y como LocalScript/executor.
+sonidos, GUI y animaciones A/B) **+ agarre, ESP y LOCK** en **un solo archivo
+combinado**: sirve como script de servidor y como LocalScript/executor.
 Se adapta solo con `RunService:IsServer()`.
 
-> **V11.2 corrige el problema de replicación:** en un juego con el script de
-> servidor instalado, el agarre y el desmembrado ya **no son solo visuales**.
-> El servidor mueve a la víctima y le quita las partes de verdad: lo ven
-> **todos** los jugadores y la víctima lo siente en su propio personaje. En
-> **Da Hood / juegos ajenos** sigue siendo local (el cliente no puede tocar el
-> cuerpo real de otra persona).
+> **Novedades V11.3:**
+> - **LOCK (Q)** para el **dueño del juego**: contorno blanco en ti y en el
+>   objetivo, línea blanca entre los dos, y **todas las armas de Da Hood
+>   disparan al objetivo** aunque dispares al piso. Tu **cámara NO se mueve**;
+>   tu personaje gira hacia el enemigo. Q otra vez lo quita.
+> - **Trepar con X** (antes era Shift).
+> - **Z eliminado:** el desmembrado se quitó por pedido del dueño (no servía
+>   en Da Hood). Ya no existe ni la tecla ni el código.
 
 ## Loadstring (executor / potassium)
 
@@ -25,9 +27,27 @@ Si tu ejecutor cachea la URL, usa la URL por commit:
 
 | Tecla | Qué hace |
 |---|---|
+| **Q** | **LOCK (solo el dueño):** pon el mouse sobre una persona y pulsa Q. Contorno blanco en ella y en ti + línea blanca entre los dos. **Con cualquier arma de Da Hood, las balas van al objetivo aunque dispares al piso.** Tu cámara no se mueve; tu personaje gira hacia el enemigo. Q otra vez lo quita (esté el mouse encima o no). Si no hay nadie bajo el mouse, no hace nada. **Sin lock, las balas van normales.** |
 | **Ctrl + G** | Agarra de la pierna al cuerpo o persona más cercana que esté debajo de ti. Quedas agachado y el cuerpo flota acostado delante de ti. **G** de nuevo lo suelta. |
-| **Z** | Mientras cargas a alguien: le va arrancando brazos y piernas **poco a poco**. Las partes salen volando cerca y separadas. A los **2 s** el script suelta solo (como pulsar G) y las partes desaparecen: el cuerpo queda solo con torso/cabeza, puede caminar pero no tiene brazos. Si la víctima respawnea, vuelve a la normalidad. |
-| **J** | ESP: contorno **blanco** + **nombre de usuario** arriba de todos los jugadores, visible **a través de las paredes**. El texto es un poco más pequeño que en V11. J otra vez lo apaga. |
+| **X + pared** | Trepar (antes era Shift). Shift queda libre. |
+| **J** | ESP: contorno **blanco** + **nombre de usuario** arriba de todos los jugadores, visible **a través de las paredes**. J otra vez lo apaga. |
+| ~~Z~~ | **Eliminado** (desmembrado quitado en V11.3). |
+
+## Cómo funciona el LOCK (importante)
+
+Las armas de Da Hood disparan hacia `Character.BodyEffects.MousePos` (un valor
+que el juego actualiza cada frame con la posición del mouse).
+
+- Cuando bloqueas con **Q**, el **servidor** mantiene ese valor apuntando al
+  torso del objetivo. Da igual dónde apuntes: la bala sale hacia él.
+- Solo puede activarlo el **dueño del place** (o el nombre/ID configurado en
+  `PROPIETARIOS_NOMBRES` / `PROPIETARIOS_IDS` dentro del script, tanto en la
+  mitad servidor como en la cliente). En **Da Hood real** el lock NO funciona:
+  no eres el dueño y no hay script de servidor. Es a propósito.
+- El lock se suelta solo si el objetivo muere, respawnea o se va; también si
+  tú mueres o respawneas.
+- Mientras lockeas, tu personaje gira hacia el objetivo (los demás ven que lo
+  apuntas). En primera persona no gira, para no moverte la cámara.
 
 ## Dos modos (leer esto primero)
 
@@ -42,18 +62,15 @@ Instala **el mismo archivo** en estos dos lugares y publica:
 
 Con eso:
 
-- El servidor crea `ReplicatedStorage.SpideyRemotos.RE_Cuerpo`.
+- El servidor crea `ReplicatedStorage.SpideyRemotos` con `RE_Cuerpo` y
+  `RE_Lock`.
 - Al pulsar **Ctrl+G**, el servidor elige la víctima, **ancla su**
   `HumanoidRootPart`, la coloca acostada delante de ti y la mueve en cada
   frame. Todos los clientes ven el cuerpo flotando; la víctima ve en su
   pantalla `TE ESTAN CARGANDO: <tu nombre>`.
-- Al pulsar **Z**, el servidor le quita brazos y piernas de verdad (re-parenta
-  las partes a `workspace`, las ancla, las tweenea y a los 2 s suelta el
-  agarre). Todos ven volar las partes y desaparecer.
-- La víctima queda con torso/cabeza, **puede caminar** (se restaura su
-  `WalkSpeed` original) y **no puede usar herramientas** hasta que respawnee
-  (el servidor devuelve cualquier `Tool` a la `Backpack`).
-- Al respawnear la víctima, vuelve a la normalidad.
+- Al pulsar **Q** con una persona bajo el mouse, el servidor **dirige las
+  balas** de todas las armas al objetivo. Solo para el dueño.
+- Al respawnear la víctima, el agarre se suelta solo y todo vuelve normal.
 - El **ESP sigue siendo de cada cliente**: cada jugador pulsa J y ve el
   contorno + nombre de los demás; no es un ESP global del servidor.
 
@@ -65,68 +82,59 @@ ajeno), el script entra en **modo local**:
 - Al pulsar **Ctrl+G**, el cliente **oculta el cuerpo real** de la víctima y
   crea un **clon anclado** delante de ti. El clon sí flota acostado y se mueve
   contigo; el cuerpo real no se pelea con la red.
-- Al pulsar **Z**, el clon pierde brazos/piernas volando; el cuerpo real se
-  oculta y se le quitan las partes **solo en tu cliente**. A los 2 s se suelta,
-  el clon desaparece y ves el cuerpo real sin extremidades en su posición real.
-- **Solo lo ves tú.** El otro jugador no siente nada, no pierde partes y puede
-  seguir usando sus herramientas. Es un límite del motor: un executor no puede
-  modificar el cuerpo de otra persona en el servidor ni crear scripts de
-  servidor.
+- **Solo lo ves tú.** El otro jugador no siente nada y puede seguir usando sus
+  herramientas. Es un límite del motor: un executor no puede modificar el
+  cuerpo de otra persona en el servidor ni crear scripts de servidor.
+- El **LOCK no funciona aquí** (no eres dueño). Q no hace nada.
 
 ## Pruebas hechas en Studio (copia `da hood22`)
 
 Esto es lo que se comprobó ejecutando el juego, no solo leyendo el código:
 
-- **Modo servidor con víctima NPC** (un clon del personaje del jugador):
-  - El cliente vio la víctima a `0.00, 0.15, -3.60` respecto a su
-    `HumanoidRootPart`, anclada y con pitch `-84°` (acostada delante).
-  - El atributo `SpideyAgarrando` llegó al cliente y el HUD mostró
-    `CARGANDO: SpideyVictima`.
-  - Tras **Z**, el cliente y el servidor coincidieron: la víctima quedó solo
-    con `Head`, `UpperTorso`, `LowerTorso` y `HumanoidRootPart`; aparecieron 6
-    partes de escombros y se movieron hasta **3.31 studs** (vuelan).
-  - A los 2 s se soltó sola: `WalkSpeed` restaurado a **16**,
-    `PlatformStand = false`, `anchored = false`, `Health = 100`.
-- **La propia víctima** (prueba `SELFTEST` sobre el jugador local): su cliente
-  vio desaparecer sus propios brazos/piernas; las herramientas
-  (`Combat`, `Spider`) se quedaron en la `Backpack` y no se pudieron equipar;
-  después de respawnear, el cuerpo volvió completo y sin el bloqueo.
-- **Modo local con NPC**:
-  - El cliente ocultó las **19** partes visibles del NPC real; el servidor
-    siguió viendo el NPC intacto (0 partes ocultas) y sin clon.
-  - El clon `SpideyCargado` quedó a `0.00, 0.15, -3.60`, anclado y acostado
-    (captura de pantalla).
-  - Tras **Z**, 6 partes del clon volaron hasta **3.05 studs**; el clon perdió
-    las extremidades y, al soltar, se destruyó y el cuerpo real (sin
-    extremidades solo en el cliente) volvió a verse.
-- **ESP**: el `BillboardGui` quedó en **200×28** (antes 220×34), con el nombre
-  del usuario, contorno blanco y `AlwaysOnTop`. La prueba `ESPTEST` lo mostró
-  sobre el jugador local.
+- **LOCK (Q)** con un NPC a 6 studs delante:
+  - Cliente: 2 contornos `SpideyLock` (tú + objetivo) y 1 `SpideyLockLinea`
+    (beam blanco entre las cabezas).
+  - Servidor: `BodyEffects.MousePos` quedó **pinado exactamente** a la
+    posición del torso del objetivo (`diff = 0`) aunque el juego manda el
+    mouse cada frame; si movía el NPC, el valor lo seguía.
+  - Disparo con la `[Glock]` lockeada: el ray de la bala terminó a **1.39
+    studs** del torso del NPC (le dio), con el mouse en otra parte.
+  - Cámara: al activar/desactivar el lock, `CurrentCamera.CFrame` quedó con
+    **dPos = 0** y **dLook = 0** (la cámara NO se mueve). El
+    `HumanoidRootPart` giró hacia el objetivo (dot = 1.0).
+  - Al quitar el lock: contornos y línea desaparecen y el servidor deja de
+    tocar `MousePos` (un valor forzado ya no vuelve al objetivo).
+  - Nota: en Studio la data del juego no carga (`_G.PlayerData` nil), así que
+    para disparar la pistola hubo que meterle una data de prueba; el daño a
+    un NPC lo ignora el propio juego de Da Hood (solo daña a jugadores). El
+    apuntado del ray quedó demostrado con el punto final del `BULLET_RAYS`.
+- **Agarre Ctrl+G (modo servidor)** con NPC: `SpideyAgarrando` en el jugador y
+  `SpideyCargadoPor` en la víctima, NPC anclado; al soltar (G), atributos
+  limpios y valores restaurados.
+- **Telaraña** tras la limpieza de código: el personaje entró en estado
+  `Swinging` al disparar.
+- **ESP**: `ESPTEST` puso 1 contorno `SpideyESP` sobre el jugador local.
+- Sintaxis validada con `luau-compile --only-parse` (exit 0).
 
 **Lo que no se pudo probar con la herramienta de Studio:** dos jugadores
-reales a la vez. El MCP de Studio solo inicia **un** cliente de Play. El camino
-de servidor es el mismo que se probó con el NPC, y el camino de la víctima se
-probó con `SELFTEST` sobre el jugador local, pero la prueba final con dos
-clientes reales tienes que hacerla tú (ver abajo).
+reales a la vez y la tecla Q física (el `VirtualInputManager` está bloqueado
+desde este contexto). La lógica de Q es la misma que la del comando `LOCK`
+ya probado; la prueba final con tu amigo la haces tú (ver abajo).
 
 ## Cómo probar con 2 jugadores en Studio
 
 1. Abre la copia `da hood22` en Studio (ya tiene `SpideyV11` en
    `ServerScriptService` y `SpideyClienteV11` en `StarterPlayerScripts`).
-2. Ve a la pestaña **Test** → **Clients and Servers** (o el selector de
-   jugadores) y pon **2 jugadores**; pulsa **Start**.
-3. En el cliente 1, acércate al cliente 2 y pulsa **Ctrl+G**.
-   - Cliente 1: ve el cuerpo acostado delante.
-   - Cliente 2: ve `TE ESTAN CARGANDO: <nombre>` en su pantalla.
-4. Con el cliente 1, pulsa **Z**: los dos ven volar brazos/piernas.
-5. Comprueba en el cliente 2 que no puede equipar herramientas y que, tras
-   soltar (G o los 2 s), puede caminar con el torso; al respawnear vuelve
-   normal.
-6. Pulsa **J** en cada cliente para el ESP.
-
-Si publicas esa copia y entra tu amigo, la replicación real también funciona
-(es tu servidor). En **Da Hood real** no: ahí solo tienes el executor y el
-modo local.
+2. Ve a la pestaña **Test** → **Clients and Servers** y pon **2 jugadores**;
+   pulsa **Start**.
+3. En tu cliente, pon el mouse sobre tu amigo y pulsa **Q**:
+   - Contorno blanco en los dos + línea blanca.
+   - Dispara al piso con cualquier arma: las balas le dan a él.
+   - Tu cámara no se mueve; tu personaje se gira hacia él.
+4. Pulsa **Q** otra vez: se quita todo y las balas van normales.
+5. **Ctrl+G** para agarrarlo; **G** para soltar; él ve
+   `TE ESTAN CARGANDO: <tu nombre>`.
+6. **X** contra una pared para trepar; **J** para el ESP.
 
 ## Qué se mantiene de V10
 
@@ -139,7 +147,7 @@ ajenos (Da Hood incluido). Lo importante que se comprobó en vivo:
 > executor. También se comprobó que un executor **no puede** crear
 > `ServerScriptService` ni subir assets en runtime.
 
-Con eso claro, V11.2 mantiene las **3 capas** para que siempre se vea algo:
+Con eso claro, V11.3 mantiene las **3 capas** para que siempre se vea algo:
 
 | Capa | Qué usa | Dónde se ve |
 |------|---------|-------------|
@@ -151,35 +159,28 @@ Las poses finas de brazos/piernas que calcula el script son locales (el motor no
 permite replicarlas desde un cliente). En **tu propio juego**, con la mitad
 servidor instalada, se replican **exactas** por `RE_Anim`.
 
-## Configuración de la capa visible
-
-Arriba de la mitad cliente:
-
-```lua
-local ANIM_IDS = {
-    A = 0, -- ID de tu animación subida para A
-    B = 0, -- ID de tu animación subida para B
-}
-local ANIM_ROBLOX = {
-    A = 507770453, -- "Point" de Roblox
-    B = 507767968, -- "Fall" (pose aérea) de Roblox
-}
-local GIRO_FISICO = true
-local ANIM_LOOP = { A = false, B = true }
-```
-
-El script **prueba cada ID** y usa el primero que cargue de verdad en el juego
-(`Length > 0`); si ninguno carga, queda el giro físico + poses locales.
-
 ## Uso
 
 - Equipa la herramienta **SPIDER**.
 - Clic izquierdo = lanzar telaraña · mantener = balanceo · soltar = salto.
-- WASD = control · Shift + pared = trepar.
+- WASD = control · **X** + pared = trepar.
+- **Q** = lock al que está bajo el mouse (solo dueño) · Q otra vez = quitar.
 - **Ctrl + G** = agarrar un cuerpo de la pierna · **G** = soltar.
-- **Z** = desmembrar al que estás cargando (suelta solo a los 2 s).
 - **J** = activar/apagar ESP de jugadores (contorno blanco + nombre).
 - A/B alternan por lanzamiento válido y se reinician a los 4 s sin clic.
+
+## Configuración del dueño del lock
+
+Arriba de la mitad servidor (y de la cliente) está:
+
+```lua
+local PROPIETARIOS_NOMBRES = { ["jlozadac"] = true }
+local PROPIETARIOS_IDS = {} -- ej: [12345678] = true
+```
+
+Además, si el place es tuyo, `game.CreatorId` ya te reconoce solo. Si tu copia
+es de un **grupo**, el lock se activa para rango **250 o más** (dueño del
+grupo).
 
 ## Comandos de prueba (consola del cliente)
 
@@ -190,51 +191,13 @@ p:SetAttribute("SpideyTest", "B")
 p:SetAttribute("SpideyTest", "B:1.8")   -- congela en t
 p:SetAttribute("SpideyTest", "STOP")
 p:SetAttribute("SpideyTest", "INFO")
+p:SetAttribute("SpideyTest", "GRAB")    -- agarra (Ctrl+G simulado); otra vez suelta
+p:SetAttribute("SpideyTest", "LOCK")    -- lockea el modelo con Humanoid más cercano
+p:SetAttribute("SpideyTest", "UNLOCK")  -- quita el lock
+p:SetAttribute("SpideyTest", "ESP")
+p:SetAttribute("SpideyTest", "ESPTEST")
 p:SetAttribute("SpideyTest", "SIMULARA") -- clon: lo que ven los demás
-p:SetAttribute("SpideyTest", "GRAB")     -- agarra (sin Ctrl)
-p:SetAttribute("SpideyTest", "Z")        -- desmembra al agarrado
-p:SetAttribute("SpideyTest", "ESP")      -- activa/apaga ESP
-p:SetAttribute("SpideyTest", "ESPTEST")  -- ESP sobre ti (prueba visual)
-p:SetAttribute("SpideyTest", "SELFTEST") -- SOLO Studio: el servidor desmiembra tu personaje
 ```
 
-`SELFTEST` es solo para Studio (`RunService:IsStudio()`); sirve para comprobar
-que la propia víctima ve sus partes desaparecer y que no puede usar tools.
-
-## Estructura del repo
-
-```
-Resources/Scripts/Main.lua                                  <- loadstring
-Resources/Scripts/ServerScriptService/SpideyV11.lua         <- Script
-Resources/Scripts/StarterPlayerScripts/SpideyClienteV11.lua <- LocalScript
-```
-
-Los tres archivos son **idénticos**; el script detecta dónde corre. También
-puedes pegar el mismo archivo en `ServerScriptService` y en
-`StarterPlayerScripts`.
-
-## Preguntas frecuentes
-
-**¿El agarre y el desmembrado le pasan de verdad al otro jugador?**
-En **tu juego con el script de servidor**: sí. El servidor ancla y mueve a la
-víctima, le quita las partes de verdad y todos lo ven; la víctima lo siente y
-pierde las tools hasta respawnear. En **Da Hood / juegos ajenos**: no, es local;
-solo lo ve el executor y el otro jugador sigue intacto.
-
-**¿Funciona con una persona real o hace falta un dummy?**
-Funciona con jugadores reales y también con NPCs. El script busca cualquier
-personaje con `Humanoid` y `HumanoidRootPart` que esté debajo o cerca de ti.
-
-**¿Se puede hacer que un executor cree el script del servidor en Da Hood?**
-No. El cliente no tiene `ServerScriptService` y `Source`/`RunContext` son
-solo-plugin (error comprobado en runtime). Es límite del motor, no del script.
-Por eso, para que tu amigo lo vea, tienen que jugar en **tu** juego/copia con
-el script de servidor instalado y publicado.
-
-**¿Por qué no se ve mi animación exacta en Da Hood?**
-Porque la animación es tuya y el dueño de Da Hood no eres tú. Roblox bloquea el
-asset (`Length = 0`). En tu copia de Da Hood (tuya) sí carga y todos la ven.
-
-**¿Qué sí ven todos en Da Hood?**
-El columpio (física), el backflip (física), el emote de apuntar y la pose aérea
-(Roblox). El agarre/desmembrado/ESP no, porque son locales.
+Nota: si repites el mismo comando exacto, mándale un espacio al final
+(`"LOCK "`), porque el gancho ignora valores idénticos al anterior.
