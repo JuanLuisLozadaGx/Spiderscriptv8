@@ -1,31 +1,39 @@
-# Spiderscript V11.6 🕷️
+# Spiderscript V11.7 🕷️
 
 Sistema **Spider-Man completo** (telaraña, física de péndulo, trepa, cámara,
 sonidos, GUI y animaciones A/B) **+ agarre, ESP y LOCK** en **un solo archivo
 combinado**: sirve como script de servidor y como LocalScript/executor.
 Se adapta solo con `RunService:IsServer()`.
 
-> **Novedades V11.6 (bug real encontrado y corregido):**
-> - **CAUSA DEL FALLO EN DA HOOD REAL:** el lock creaba los visuales, pero al
->   llegar al envío del objetivo usaba una variable `b` que no existía
->   (`local b = bloqueado` faltaba). En modo executor (sin servidor propio) eso
->   cortaba el lock **antes de activar el envío**, así que nunca se mandaba la
->   cabeza: las balas iban al piso. En tu propio juego no se notaba porque el
->   camino del servidor (`RE_Lock`) ya se había activado antes del corte.
->   Corregido: ahora el lock en modo universal sí envía en cada frame.
-> - **ENVÍO REFORZADO:** además del envío directo en `RenderStepped` y
->   `Heartbeat`, se manda uno **diferido** (`task.defer`) al final del frame:
->   así también le gana a un envío diferido del propio juego.
-> - **ESCOPETAS:** con [Shotgun], [TacticalShotgun], [DrumShotgun] o
->   [Double-Barrel SG] equipada, el lock apunta al **torso** (objetivo más
->   grande) para que la dispersión del juego no tire perdigones afuera. Las
->   demás armas siguen apuntando a la **cabeza**.
-> - **REMOTO MÁS ROBUSTO:** si `MainRemotes.MainRemoteEvent` no está en su
->   sitio, se busca un `RemoteEvent` con ese nombre en todo `ReplicatedStorage`
->   (clones que lo mueven).
-> - Se mantiene V11.5: nuestro valor es el **último** en escribirse en cada
->   frame, así que las balas le dan al objetivo aunque dispares al piso o al
->   aire. Si hay una pared entre medio, la bala da en la pared (normal).
+> **Novedades V11.7 (el Revolver nuevo ya recibe en la cabeza):**
+> - **CAUSA REAL DEL FALLO:** el `[Revolver]` de la copia nueva de Da Hood
+>   **no dispara en el servidor**: lo hace en **tu cliente** con un
+>   `GunClient` (LocalScript). Ese cliente calcula la dirección con
+>   `GunHandler.getAim()`, que usa `Mouse.Hit.p` (el mouse real), y hace el
+>   raycast en el cliente. **No usa `BodyEffects.MousePos`**, así que el remoto
+>   que funcionaba con las armas viejas no lo tocaba: la bala seguía yendo al
+>   piso.
+> - **ARREGLO:** V11.7 reemplaza **solo** `GunHandler.getAim` en tu cliente.
+>   Con alguien lockeado devuelve la dirección a la **cabeza** (o al **torso**
+>   si hay escopeta); sin lock llama a la función original y todo queda igual
+>   que el juego. El módulo se comparte por caché entre todos los LocalScripts,
+>   así que el `GunClient` del arma usa nuestra función automáticamente.
+> - **IMPORTANTE:** el `require` del módulo puede **ceder** (personaje,
+>   animaciones, etc.). Por eso el parche se lanza en un **hilo aparte**
+>   (`task.spawn`): si el juego tarda, el lock, el ESP y el resto del script
+>   siguen funcionando. En la primera prueba V11.7 el require colgó el hilo
+>   principal y el lock ni siquiera se conectaba; ya está corregido y probado.
+> - **ARMAS VIEJAS:** se mantiene el envío por `MainRemoteEvent`
+>   (`"DEAHOODMOUSEPOSx3^3"`) con la posición de la cabeza/torso en cada frame,
+>   que es lo que usan las armas cuyo `GunScript` corre en el servidor
+>   (`[Glock]`, `[AR]`, etc.).
+> - **ESCOPETAS NUEVAS:** `[TacticalShotgun]`, `[Double-Barrel SG]` también
+>   disparan en el cliente con `getAim` + dispersión de 5 perdigones. Con lock
+>   apuntan al **torso** para que la dispersión no saque los perdigones.
+> - **Prueba real en la copia nueva `Official Hood.rbxl`:** con el mouse en el
+>   piso (53.50 studs de la cabeza), el `[Revolver]` impactó a **0.98 studs de
+>   la cabeza**; la `[TacticalShotgun]` metió **5/5 perdigones** a **0.80–0.90
+>   studs del torso**. Sin lock, el impacto fue el piso (53.50). Detalle abajo.
 
 ## Loadstring (executor / potassium)
 
@@ -36,11 +44,14 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/JuanLuisLozadaGx/Spid
 Si tu ejecutor cachea la URL, usa la URL por commit:
 `https://raw.githubusercontent.com/JuanLuisLozadaGx/Spiderscriptv8/<commit>/Resources/Scripts/Main.lua`
 
+> Si ya tenías una versión anterior cargada en la misma sesión, **rejoin**:
+> el candado `_G.__SPIDEY_V11_ACTIVO` impide cargar dos veces el script.
+
 ## Teclas
 
 | Tecla | Qué hace |
 |---|---|
-| **Q** | **LOCK (funciona en cualquier juego):** pon el mouse sobre una persona y pulsa Q. Contorno blanco en ella y en ti + línea blanca entre los dos. Tu cámara no se mueve; tu personaje gira hacia el enemigo. Q otra vez lo quita (esté el mouse encima o no). Si no hay nadie bajo el mouse, no hace nada. **Las balas de cualquier arma van al objetivo aunque dispares al piso**, tanto en tu juego (servidor propio) como en Da Hood (remoto del juego). |
+| **Q** | **LOCK (funciona en cualquier juego):** pon el mouse sobre una persona y pulsa Q. Contorno blanco en ella y en ti + línea blanca entre los dos. Tu cámara no se mueve; tu personaje gira hacia el enemigo. Q otra vez lo quita (esté el mouse encima o no). Si no hay nadie bajo el mouse, no hace nada. **Las balas de cualquier arma van al objetivo aunque dispares al piso**, tanto en tu juego (servidor propio) como en Da Hood (armas nuevas por `getAim`, armas viejas por el remoto). |
 | **Ctrl + G** | Agarra de la pierna al cuerpo o persona más cercana que esté debajo de ti. Quedas agachado y el cuerpo flota acostado delante de ti. **G** de nuevo lo suelta. |
 | **X + pared** | Trepar (antes era Shift). Shift queda libre. |
 | **J** | ESP: contorno **blanco** + **nombre de usuario** arriba de todos los jugadores, visible **a través de las paredes**. J otra vez lo apaga. |
@@ -51,15 +62,23 @@ Si tu ejecutor cachea la URL, usa la URL por commit:
 - **Los visuales (contorno blanco + línea blanca) funcionan SIEMPRE**: son un
   `Highlight` y un `Beam` creados en **tu propio cliente**. Da igual el juego:
   Da Hood, cualquier otro, tu copia. Nadie más los ve, solo tú.
-- **APUNTADO EN DA HOOD / JUEGOS CON SUS ARMAS:** Da Hood deja que tu cliente
-  le diga al servidor dónde apuntas (manda `MainRemoteEvent
-  "DEAHOODMOUSEPOSx3^3"` con `Mouse.Hit.p` cada Heartbeat y el servidor lo
-  copia **sin validar** — comprobado en su Helper). Con alguien lockeado, el
-  script manda por **ese mismo remoto** la posición de la **cabeza** del
-  objetivo (o el **torso** si hay escopeta), en cada frame (RenderStepped +
-  Heartbeat + un envío diferido) y en cada disparo. Nuestra conexión se
-  registra **después** que la del juego, así que nuestro valor es el **último
-  en escribirse**.
+- **ARMAS NUEVAS (Revolver, TacticalShotgun, Double-Barrel SG):** el arma
+  dispara en **tu cliente**. Su `GunClient` pide la dirección a
+  `GunHandler.getAim(origen)`, que normalmente devuelve `(Mouse.Hit.p - origen)`
+  (o la cámara si `_G.MobileShiftLock`). V11.7 **reemplaza esa función** en el
+  módulo cacheado: si hay lock devuelve `(punto_del_objetivo - origen)`, donde
+  el punto es la **cabeza** o el **torso** con escopeta. El `GunClient` hace su
+  raycast contra ese punto, crea el `BULLET_RAYS` y manda el impacto al
+  servidor por `MainEvent:FireServer("ShootGun", ...)`. El daño y la bala
+  visible van al objetivo, aunque el mouse esté en el piso.
+- **ARMAS VIEJAS:** Da Hood deja que tu cliente le diga al servidor dónde
+  apunta (manda `MainRemoteEvent "DEAHOODMOUSEPOSx3^3"` con `Mouse.Hit.p` cada
+  Heartbeat y el servidor lo copia **sin validar** — comprobado en su Helper).
+  Con alguien lockeado, el script manda por **ese mismo remoto** la posición de
+  la **cabeza** del objetivo (o el **torso** si hay escopeta), en cada frame
+  (RenderStepped + Heartbeat + un envío diferido) y en cada disparo. Nuestra
+  conexión se registra **después** que la del juego, así que nuestro valor es
+  el **último en escribirse**.
 - **ESCOPETAS:** apuntan al torso para que la dispersión del juego (0.3–0.54
   studs medida en la copia) no saque los perdigones del cuerpo. No se puede
   quitar la dispersión desde fuera del juego; apuntar al torso maximiza los
@@ -109,28 +128,47 @@ ajeno), el script entra en **modo local**:
 - **Solo lo ves tú.** El otro jugador no siente nada y puede seguir usando sus
   herramientas. Es un límite del motor: un executor no puede modificar el
   cuerpo de otra persona en el servidor ni crear scripts de servidor.
-- El **LOCK sí funciona aquí**: contorno/línea se crean en tu cliente y el
-  apuntado se manda por el remoto del propio juego (`MainRemoteEvent`,
-  subject `"DEAHOODMOUSEPOSx3^3"`), igual que hace el juego con tu mouse.
-  Si el juego no tiene ese remoto, el lock queda **solo visual** y el HUD lo
-  avisa: `LOCK: nombre (aqui solo visual)`.
+- El **LOCK sí funciona aquí**: contorno/línea se crean en tu cliente; las
+  armas nuevas se apuntan por el parche de `GunHandler.getAim` y las viejas por
+  el remoto del propio juego (`MainRemoteEvent`, subject
+  `"DEAHOODMOUSEPOSx3^3"`), igual que hace el juego con tu mouse.
+  Si el juego no tiene ninguno de los dos sistemas, el lock queda **solo
+  visual** y el HUD lo avisa: `LOCK: nombre (aqui solo visual)`.
 
-## Pruebas hechas en Studio (copia `da hood22`)
+## Pruebas hechas en Studio (copia nueva `Official Hood.rbxl`)
 
-Esto es lo que se comprobó ejecutando el juego, no solo leyendo el código:
+Esto es lo que se comprobó ejecutando el juego, no solo leyendo el código.
 
-- **V11.6 — modo universal (servidor propio desactivado, igual que Da Hood
-  real / executor):**
-  - Lock con `[Revolver]` equipada: HUD `LOCK: SpideyBlanco   |   Q = quitar`
-    y consola `[Spidey V11.6] lock: SpideyBlanco (apuntado remoto)`. Antes el
-    lock cortaba en `b.enviarApuntado` (variable inexistente) y nunca enviaba.
-  - Disparo con el mouse apuntando a otro lado: **1 bala, punto final a 1.10
-    studs de la cabeza** (impacto en la cabeza).
-  - `[TacticalShotgun]`: **5 perdigones, 5/5 a menos de 2.6 studs del torso**
-    (mínimo 0.97) — la escopeta también llega.
-  - Visuales desde el cliente: 2 `SpideyLock` (tú + objetivo) y 1
-    `SpideyLockLinea`; al desbloquear quedan en 0.
-- **V11.6 — modo servidor (tu juego):**
+La copia nueva tiene **dos sistemas de armas**:
+- Viejas en `ServerStorage.Storage.Tools.Weapons` (`[Glock]`, `[AR]`, ...):
+  `GunScript` de servidor que lee `BodyEffects.MousePos`.
+- Nuevas en `ReplicatedStorage.Assets.Loadout` (`[Revolver]`,
+  `[TacticalShotgun]`, `[Double-Barrel SG]`): `GunClient` (LocalScript) que
+  dispara en el cliente con `GunHandler.getAim` + `GunHandler.shoot`.
+
+- **V11.7 — modo universal (servidor propio desactivado, igual que Da Hood
+  real / executor), cámara mirando al piso:**
+  - `[Revolver]` equipado. Mouse real a **53.50 studs de la cabeza**.
+  - **Sin lock:** impacto a **53.50 studs** (el piso). Control válido.
+  - **Con lock:** impacto a **0.98 studs de la cabeza**. La bala visible y el
+    daño van al objetivo, no al piso.
+  - HUD: `LOCK: SpideyBlanco   |   Q = quitar`.
+  - Consola: `[Spidey V11.7] armas nuevas (Revolver/escopetas): getAim
+    dirigido al lock` (una sola vez) y
+    `[Spidey V11.7] lock: SpideyBlanco (apuntado remoto + armas nuevas)`.
+  - `[TacticalShotgun]`: mouse a **53.76 studs**. **5/5 perdigones** con
+    distancias al **torso** de **0.80, 0.83, 0.84, 0.87 y 0.90 studs**; a la
+    cabeza 1.20–1.55 studs. Ninguno al piso.
+  - `getCanShoot` en Studio necesitó `FULLY_LOADED_CHAR` en el personaje (el
+    juego real lo crea solo). Sin eso el arma no dispara, pero no es del
+    script.
+- **V11.6 (se mantiene) — modo universal:**
+  - `[Glock]`/`[Revolver]` viejo: bala a **1.10 studs de la cabeza**.
+  - `[TacticalShotgun]`: **5/5 perdigones a menos de 2.6 studs del torso**
+    (mínimo 0.97).
+  - 2 `SpideyLock` (tú + objetivo) y 1 `SpideyLockLinea`; al desbloquear
+    quedan en 0.
+- **V11.6 (se mantiene) — modo servidor (tu juego):**
   - `[Revolver]`: bala a **1.10 studs de la cabeza**.
   - `[TacticalShotgun]`: **5/5 perdigones al torso** (mínimo 0.99).
   - Aviso: en una prueba la escopeta dio a 2.19 studs porque había una **pared
@@ -143,29 +181,10 @@ Esto es lo que se comprobó ejecutando el juego, no solo leyendo el código:
 - **V11.3/V11.4 (se mantiene):** 2 contornos `SpideyLock` + 1 `SpideyLockLinea`
   en cualquier juego; trepa con X; desmembrado eliminado; agarre, telaraña y
   ESP funcionando.
-- Nota: en Studio la data del juego no carga (`_G.PlayerData` nil), así que
-  para disparar hubo que meterle una data de prueba; el daño a un NPC lo
-  ignora el propio juego de Da Hood (solo daña a jugadores). El apuntado se
-  comprobó con el punto final del `BULLET_RAYS` (la bala visual del juego).
-- **V11.5 — LOCK (Q)** con un NPC a 6 studs delante:
-  - Cliente: 2 contornos `SpideyLock` (tú + objetivo) y 1 `SpideyLockLinea`
-    (beam blanco entre las cabezas).
-  - Servidor: `BodyEffects.MousePos` quedó **pinado exactamente** a la
-    posición del torso del objetivo (`diff = 0`) aunque el juego manda el
-    mouse cada frame; si movía el NPC, el valor lo seguía.
-  - Disparo con la `[Glock]` lockeada: el ray de la bala terminó a **1.39
-    studs** del torso del NPC (le dio), con el mouse en otra parte.
-  - Cámara: al activar/desactivar el lock, `CurrentCamera.CFrame` quedó con
-    **dPos = 0** y **dLook = 0** (la cámara NO se mueve). El
-    `HumanoidRootPart` giró hacia el objetivo (dot = 1.0).
-  - Al quitar el lock: contornos y línea desaparecen y el servidor deja de
-    tocar `MousePos` (un valor forzado ya no vuelve al objetivo).
-- **Agarre Ctrl+G (modo servidor)** con NPC: `SpideyAgarrando` en el jugador y
-  `SpideyCargadoPor` en la víctima, NPC anclado; al soltar (G), atributos
-  limpios y valores restaurados.
-- **Telaraña** tras la limpieza de código: el personaje entró en estado
-  `Swinging` al disparar.
-- **ESP**: `ESPTEST` puso 1 contorno `SpideyESP` sobre el jugador local.
+- **Nota de la copia:** en Studio la data del juego no carga (`_G.PlayerData`
+  nil), así que para disparar se metió una data de prueba y `LOAD_SAVE_DATA`.
+  El daño a un NPC lo ignora el propio Da Hood (solo daña jugadores); el
+  apuntado se comprobó con el punto final del `BULLET_RAYS` (la bala visual).
 - Sintaxis validada con `luau-compile --only-parse` (exit 0).
 
 **Lo que no se pudo probar con la herramienta de Studio:** dos jugadores
@@ -175,13 +194,15 @@ ya probado; la prueba final con tu amigo la haces tú (ver abajo).
 
 ## Cómo probar con 2 jugadores en Studio
 
-1. Abre la copia `da hood22` en Studio (ya tiene `SpideyV11` en
-   `ServerScriptService` y `SpideyClienteV11` en `StarterPlayerScripts`).
+1. Abre la copia `Official Hood.rbxl` (tiene `SpideyV11` en
+   `ServerScriptService`, **desactivado** para simular Da Hood, y
+   `SpideyClienteV11` en `StarterPlayerScripts`).
+   Para probar el modo servidor de tu propio juego, activa `SpideyV11`.
 2. Ve a la pestaña **Test** → **Clients and Servers** y pon **2 jugadores**;
    pulsa **Start**.
 3. En tu cliente, pon el mouse sobre tu amigo y pulsa **Q**:
    - Contorno blanco en los dos + línea blanca.
-   - Dispara al piso con cualquier arma: las balas le dan a él.
+   - Dispara al piso con el **Revolver**: la bala va a su cabeza.
    - Con **escopeta**: apunta al torso; los 5 perdigones deben llegarle.
    - Tu cámara no se mueve; tu personaje se gira hacia él.
 4. Pulsa **Q** otra vez: se quita todo y las balas van normales.
@@ -200,7 +221,7 @@ ajenos (Da Hood incluido). Lo importante que se comprobó en vivo:
 > executor. También se comprobó que un executor **no puede** crear
 > `ServerScriptService` ni subir assets en runtime.
 
-Con eso claro, V11.6 mantiene las **3 capas** para que siempre se vea algo:
+Con eso claro, V11.7 mantiene las **3 capas** para que siempre se vea algo:
 
 | Capa | Qué usa | Dónde se ve |
 |------|---------|-------------|
@@ -217,7 +238,8 @@ servidor instalada, se replican **exactas** por `RE_Anim`.
 - Equipa la herramienta **SPIDER**.
 - Clic izquierdo = lanzar telaraña · mantener = balanceo · soltar = salto.
 - WASD = control · **X** + pared = trepar.
-- **Q** = lock al que está bajo el mouse (visual + balas al objetivo; funciona en tu juego y en Da Hood) · Q otra vez = quitar.
+- **Q** = lock al que está bajo el mouse (visual + balas al objetivo; funciona
+  en tu juego y en Da Hood) · Q otra vez = quitar.
 - **Ctrl + G** = agarrar un cuerpo de la pierna · **G** = soltar.
 - **J** = activar/apagar ESP de jugadores (contorno blanco + nombre).
 - A/B alternan por lanzamiento válido y se reinician a los 4 s sin clic.
@@ -254,3 +276,13 @@ p:SetAttribute("SpideyTest", "SIMULARA") -- clon: lo que ven los demás
 
 Nota: si repites el mismo comando exacto, mándale un espacio al final
 (`"LOCK "`), porque el gancho ignora valores idénticos al anterior.
+
+## Archivos
+
+- `Resources/Scripts/Main.lua` — el archivo que sirve el loadstring (combinado).
+- `Resources/Scripts/ServerScriptService/SpideyV11.lua` — copia para el Script
+  de servidor.
+- `Resources/Scripts/StarterPlayerScripts/SpideyClienteV11.lua` — copia para el
+  LocalScript de StarterPlayerScripts.
+
+Los tres son **idénticos** al `SPIDER V11.7.lua` entregado.
