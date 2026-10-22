@@ -2,23 +2,26 @@
 	SPIDER V8 · TODO EL SISTEMA EN UN SOLO SCRIPT COMBINADO
 	Servidor + Cliente en el mismo archivo. Se adapta solo.
 
-	INSTALACION RECOMENDADA (para que TODOS vean tus movimientos):
-	  1) Roblox Studio > Explorer > ServerScriptService
-	  2) Boton derecho > Insert Object > "Script" (NO LocalScript)
-	     llamalo SpideyV8
-	  3) Pega ESTE archivo completo dentro y juega.
-	  El script detecta el servidor, valida las telaranas, difunde las
-	  animaciones por RE_Anim y SE CLONA SOLO hacia todos los clientes
-	  (aparece como ReplicatedStorage.SpideyClienteV8 con RunContext
-	  Client). Nadie mas necesita instalar nada.
+	INSTALACION EN TU JUEGO (para que TODOS vean tus movimientos):
+	  Son 2 pegados de ESTE MISMO archivo:
+	  1) ServerScriptService > Insert Object > "Script" (NO LocalScript)
+	     llamalo SpideyV8 y pega este archivo completo.
+	  2) StarterPlayer > StarterPlayerScripts > Insert Object >
+	     "LocalScript" llamalo SpideyClienteV8 y pega este MISMO archivo.
+	  3) Publica el juego. El archivo detecta solo donde corre:
+	     - en el servidor valida telaranas y difunde por RE_Anim
+	     - en cada cliente corre la jugabilidad y aplica en pantalla
+	       las animaciones de TODOS los jugadores del servidor.
+	  (Un script de servidor no puede crear codigo cliente en runtime:
+	   por eso el paso 2 es necesario; es limite del motor, no del script.)
 
-	TAMBIEN FUNCIONA PEGADO COMO LOCALSCRIPT / EJECUTADO EN EXECUTOR:
-	  En ese caso corre solo la mitad cliente: tu ves tus animaciones
-	  y tu fisica, y si el juego YA tiene el SpideyV8 instalado en el
-	  servidor, todos te ven. Si el juego NO lo tiene, los demas solo
-	  ven tu columpio (movimiento) pero no las poses: ningun LocalScript
-	  del mundo puede replicar poses, el motor de Roblox no lo permite;
-	  la unica via real es tener este script en el servidor.
+	TAMBIEN FUNCIONA SOLO COMO LOCALSCRIPT / EJECUTADO EN EXECUTOR:
+	  Corre solo la mitad cliente: tu ves tus animaciones y tu fisica.
+	  Si el juego YA tiene la instalacion de arriba, todos te ven y un
+	  candado _G evita la doble ejecucion. Si el juego NO la tiene, los
+	  demas solo ven tu columpio (movimiento) pero no las poses: ningun
+	  LocalScript del mundo puede replicar poses; la unica via real es
+	  tener la mitad servidor instalada en el juego.
 
 	ANIMACIONES:
 	  A (1.833 s): disparo arriba + tiron + cuclillas + recupero
