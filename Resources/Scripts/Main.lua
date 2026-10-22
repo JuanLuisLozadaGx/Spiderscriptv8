@@ -1,30 +1,45 @@
 --[[
-	SPIDER V11 · TODO EL SISTEMA EN UN SOLO SCRIPT COMBINADO
+	SPIDER V11.2 · TODO EL SISTEMA EN UN SOLO SCRIPT COMBINADO
 	Servidor + Cliente en el mismo archivo. Se adapta solo.
 
-	NUEVO EN V11 (teclas):
+	LO NUEVO DE V11.2 (agarre, desmembrado y ESP):
 	  Ctrl+G  agarra de la pierna al cuerpo/persona mas cercana que
 	          este debajo de ti: quedas agachado y el cuerpo flota
-	          acostado delante de ti. G de nuevo lo suelta.
+	          acostado DELANTE de ti. G lo suelta.
 	  Z       (mientras lo cargas) le arranca brazos y piernas poco a
-	          poco: las partes salen volando cerca y quedan separadas.
-	          A los 2 s se suelta solo (como pulsar G) y las partes
-	          desaparecen: el cuerpo queda solo con torso/cabeza (puede
-	          caminar, pero no tiene brazos). Si la victima respawnea,
-	          vuelve a la normalidad.
+	          poco. A los 2 s se suelta solo (como G) y las partes
+	          desaparecen. El cuerpo queda solo con torso/cabeza y
+	          puede caminar; al respawnear vuelve a la normalidad.
 	  J       ESP: contorno blanco + nombre de usuario encima de TODOS
-	          los jugadores, visible a traves de las paredes.
-	          J otra vez lo apaga.
-	  En juegos ajenos (Da Hood) estos efectos son LOCALES: solo los ve
-	  el jugador que ejecuta el script. No se puede modificar el cuerpo
-	  real de otro jugador sin servidor.
+	          los jugadores, visible a traves de las paredes. El texto
+	          es un poco mas pequeno que en V11. J otra vez lo apaga.
 
-	QUE HACE V11 (modo universal para Da Hood y cualquier juego):
+	DOS MODOS (importante):
+	  * EN TU JUEGO (con servidor): el servidor mueve a la victima y
+	    le quita las partes DE VERDAD. Lo ven TODOS los jugadores y la
+	    victima lo siente en su propio personaje. La victima no puede
+	    usar herramientas hasta que respawnee.
+	  * EN DA HOOD / JUEGOS AJENOS (executor): no existe forma de
+	    modificar el cuerpo real de otra persona desde el cliente. El
+	    script lo hace LOCAL: oculta el cuerpo real y muestra un clon
+	    delante de ti. Solo lo ves tu; el otro jugador no siente nada.
+
+	INSTALACION PARA REPLICAR (tu juego):
+	  1) ServerScriptService > Insert Object > "Script" (NO LocalScript)
+	     llamado SpideyV11 y pega ESTE archivo completo.
+	  2) StarterPlayer > StarterPlayerScripts > "LocalScript"
+	     llamado SpideyClienteV11 y pega ESTE MISMO archivo.
+	  3) Publica. El servidor crea RE_Cuerpo y replica el agarre y el
+	     desmembrado; TODOS los jugadores lo ven.
+	  Si falta el Script de servidor, el cliente entra en MODO LOCAL
+	  automaticamente (Da Hood / executor) y no rompe nada.
+
+	QUE HACE V10 (viene incluido):
 	  Las animaciones solo se replican por el Animator, y Roblox solo
 	  deja cargar animaciones del DUEÑO del juego (o de Roblox).
 	  Comprobado en vivo: las animaciones de otros usuarios dan
 	  Length = 0 y no se ven aunque las ejecute el mejor executor.
-	  Por eso V11 usa 3 capas para que TODOS te vean:
+	  Por eso V10 usa 3 capas para que TODOS te vean:
 	   1) ANIM_IDS     tus animaciones subidas: cargan en TUS juegos
 	                   (tu copia de Da Hood, tus places). Todos las ven.
 	   2) ANIM_ROBLOX  emotes de Roblox: cargan en CUALQUIER juego.
@@ -37,15 +52,6 @@
 	  motor: un executor no puede subir animaciones ni crear scripts
 	  de servidor (el servidor no existe en el cliente).
 
-	INSTALACION OPCIONAL EN TU JUEGO (poses exactas para todos):
-	  Son 2 pegados de ESTE MISMO archivo:
-	  1) ServerScriptService > Insert Object > "Script" (NO LocalScript)
-	     llamado SpideyV11 y pega este archivo completo.
-	  2) StarterPlayer > StarterPlayerScripts > "LocalScript"
-	     llamado SpideyClienteV11 y pega este MISMO archivo.
-	  3) Publica. El servidor difunde las poses exactas por RE_Anim y
-	     TODOS los jugadores del servidor las ven completas.
-
 	ANIMACIONES:
 	  A (1.833 s): disparo arriba + tiron + cuclillas + recupero
 	  B (5.333 s): mira + backflip + cuclillas + 2o backflip + cuclillas
@@ -56,7 +62,7 @@
 
 	PRUEBAS (consola): LocalPlayer:SetAttribute("SpideyTest", "A")
 	  "B:1.8" congela · "STOP" "INFO" "EQUIP" "CLICK" "RELEASE"
-	  "GRAB" "Z" "ESP" "ESPTEST"
+	  "GRAB" "Z" "ESP" "ESPTEST" "SELFTEST"
 	  "SIMULARA"/"SIMULARB" clonan tu personaje y le aplican la
 	  secuencia para ver EXACTAMENTE lo que ven los demas.
 ]]
@@ -68,6 +74,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local StarterPack = game:GetService("StarterPack")
+local TweenService = game:GetService("TweenService")
 
 local Remotos = ReplicatedStorage:FindFirstChild("SpideyRemotos")
 if not Remotos then
@@ -89,6 +96,7 @@ end
 local RE_Web = remoto("RE_Web")
 local RE_Efecto = remoto("RE_Efecto")
 local RE_Anim = remoto("RE_Anim")
+local RE_Cuerpo = remoto("RE_Cuerpo")
 
 -- La mitad cliente de ESTE MISMO archivo debe estar en
 -- StarterPlayer.StarterPlayerScripts.SpideyClienteV11 (LocalScript).
@@ -323,6 +331,379 @@ Players.PlayerAdded:Connect(function(player)
 	end)
 end)
 
+-----------------------------------------------------------------
+-- V11.2 · CUERPO: agarre y desmembrado REPLICADOS POR EL SERVIDOR
+-- Todo lo que pasa aqui lo ven TODOS los clientes y la victima lo
+-- siente en su propio personaje. Es la unica forma real: un cliente
+-- no puede modificar el cuerpo de otra persona en el servidor.
+-----------------------------------------------------------------
+local GRUPOS_CUERPO = {
+	{ "RightUpperArm", "RightLowerArm", "RightHand" },
+	{ "LeftUpperArm", "LeftLowerArm", "LeftHand" },
+	{ "RightUpperLeg", "RightLowerLeg", "RightFoot" },
+	{ "LeftUpperLeg", "LeftLowerLeg", "LeftFoot" },
+	{ "Right Arm" },
+	{ "Left Arm" },
+	{ "Right Leg" },
+	{ "Left Leg" },
+}
+
+local RADIO_CARGA = 10
+local DIST_CARGA = 3.6
+local cargas = {}       -- [modelo victima] = datos de la carga
+local cargaDe = {}      -- [player agarrador] = datos de la carga
+local ultimoIntento = {}
+
+local function parteEnGrupo(d, set)
+	if d:IsA("JointInstance") or d:IsA("WeldConstraint") then
+		return set[d.Part0] or set[d.Part1]
+	elseif d:IsA("AnimationConstraint") then
+		local a0, a1 = d.Attachment0, d.Attachment1
+		return (a0 and set[a0.Parent]) or (a1 and set[a1.Parent])
+	end
+	return false
+end
+
+local function lanzarGrupo(partes, centro)
+	local suma = Vector3.zero
+	for _, p in ipairs(partes) do suma = suma + p.Position end
+	local centroGrupo = suma / #partes
+	local dir = Vector3.new(centroGrupo.X - centro.X, 0, centroGrupo.Z - centro.Z)
+	if dir.Magnitude < 0.05 then
+		dir = Vector3.new(math.random() - 0.5, 0, math.random() - 0.5)
+	end
+	dir = dir.Unit
+	local destino = CFrame.new(centroGrupo + dir * (2.2 + math.random() * 1.4) + Vector3.new(0, 1.3 + math.random() * 0.9, 0))
+		* CFrame.Angles(math.rad((math.random() - 0.5) * 60), math.rad((math.random() - 0.5) * 90), math.rad((math.random() - 0.5) * 60))
+	local base = CFrame.new(centroGrupo)
+	for _, p in ipairs(partes) do
+		local offset = base:ToObjectSpace(p.CFrame)
+		local objetivo = destino * offset
+		TweenService:Create(p, TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { CFrame = objetivo }):Play()
+	end
+end
+
+local function hrpDe(modelo)
+	return modelo and modelo:FindFirstChild("HumanoidRootPart")
+end
+
+local function buscarVictima(grabador)
+	local p = grabador.Character
+	local h = p and p:FindFirstChildOfClass("Humanoid")
+	local r = hrpDe(p)
+	if not (p and h and h.Health > 0 and r) then return nil end
+	local p0 = r.Position
+	local mejor, mejorPuntaje = nil, nil
+	local function probar(m)
+		if not m or m == p or not m.Parent or cargas[m] then return end
+		local mh = m:FindFirstChildOfClass("Humanoid")
+		local mr = hrpDe(m)
+		if not mh or not mr then return end
+		local d = mr.Position - p0
+		local horiz = Vector3.new(d.X, 0, d.Z).Magnitude
+		if horiz > RADIO_CARGA or d.Y > 1.0 or d.Y < -9 then return end
+		local puntaje = horiz + math.abs(d.Y + 2) * 0.35
+		if Players:GetPlayerFromCharacter(m) then puntaje -= 0.8 end
+		if not mejorPuntaje or puntaje < mejorPuntaje then
+			mejor, mejorPuntaje = m, puntaje
+		end
+	end
+	for _, pl in ipairs(Players:GetPlayers()) do
+		if pl ~= grabador then probar(pl.Character) end
+	end
+	for _, m in ipairs(workspace:GetChildren()) do
+		if m:IsA("Model") and m:FindFirstChildOfClass("Humanoid") then
+			probar(m)
+		end
+	end
+	return mejor
+end
+
+local function restaurarCarga(e)
+	local h = e.humanoide
+	local r = e.raiz
+	if r and r.Parent then
+		r.Anchored = e.anclado
+	end
+	if h and h.Parent then
+		h.PlatformStand = e.plataforma
+		h.AutoRotate = e.autogiro
+		h.WalkSpeed = e.velocidad
+		h.JumpPower = e.salto
+		h.UseJumpPower = e.usaSalto
+	end
+	if e.modelo and e.modelo.Parent then
+		e.modelo:SetAttribute("SpideyCargadoPor", nil)
+	end
+	if e.grabador and e.grabador.Parent then
+		e.grabador:SetAttribute("SpideyAgarrando", nil)
+	end
+end
+
+local function limpiarDebris(lista, espera)
+	task.delay(espera or 0.5, function()
+		for _, d in ipairs(lista) do
+			if d and d.Parent then d:Destroy() end
+		end
+	end)
+end
+
+local function soltar(grabador, motivo)
+	local e = cargaDe[grabador]
+	if not e then return end
+	cargaDe[grabador] = nil
+	cargas[e.modelo] = nil
+	restaurarCarga(e)
+	if e.basura and #e.basura > 0 then
+		limpiarDebris(e.basura, 0.5)
+		e.basura = nil
+	end
+	if grabador and grabador.Parent then
+		RE_Cuerpo:FireClient(grabador, "RELEASE")
+	end
+	print("[Spidey V11.2] agarre soltado para todos (" .. tostring(motivo or "manual") .. ")")
+end
+
+local function iniciarCarga(grabador, modelo)
+	local h = modelo:FindFirstChildOfClass("Humanoid")
+	local r = hrpDe(modelo)
+	if not h or not r then return end
+	local e = {
+		grabador = grabador,
+		modelo = modelo,
+		humanoide = h,
+		raiz = r,
+		anclado = r.Anchored,
+		plataforma = h.PlatformStand,
+		autogiro = h.AutoRotate,
+		velocidad = h.WalkSpeed,
+		salto = h.JumpPower,
+		usaSalto = h.UseJumpPower,
+		desmembrado = false,
+		basura = {},
+	}
+	r.Anchored = true
+	h.PlatformStand = true
+	h.AutoRotate = false
+	h.WalkSpeed = 0
+	h.JumpPower = 0
+	h.UseJumpPower = true
+	cargas[modelo] = e
+	cargaDe[grabador] = e
+	modelo:SetAttribute("SpideyCargadoPor", grabador.Name)
+	grabador:SetAttribute("SpideyAgarrando", modelo.Name)
+	RE_Cuerpo:FireClient(grabador, "OK", modelo)
+	print("[Spidey V11.2] agarrado para todos: " .. modelo.Name .. " (por " .. grabador.Name .. ")")
+end
+
+local function cortarGrupo(modelo, nombres, centro, basura)
+	local partes, set = {}, {}
+	for _, n in ipairs(nombres) do
+		local p = modelo:FindFirstChild(n)
+		if p and p:IsA("BasePart") then
+			partes[#partes + 1] = p
+			set[p] = true
+		end
+	end
+	if #partes == 0 then return end
+	for _, d in ipairs(modelo:GetDescendants()) do
+		if parteEnGrupo(d, set) then d:Destroy() end
+	end
+	for _, p in ipairs(partes) do
+		for _, d in ipairs(p:GetChildren()) do
+			if d:IsA("JointInstance") or d:IsA("WeldConstraint") or d:IsA("AnimationConstraint") then
+				d:Destroy()
+			end
+		end
+	end
+	local debris = Instance.new("Model")
+	debris.Name = "SpideyDebris"
+	for _, p in ipairs(partes) do
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.Parent = debris
+	end
+	debris.Parent = workspace
+	if basura then basura[#basura + 1] = debris end
+	lanzarGrupo(partes, centro)
+end
+
+local function moverHerramientasAlBackpack(modelo)
+	local pl = Players:GetPlayerFromCharacter(modelo)
+	if not pl then return end
+	local bp = pl:FindFirstChildOfClass("Backpack")
+	for _, t in ipairs(modelo:GetChildren()) do
+		if t:IsA("Tool") then
+			t.Parent = bp or workspace
+		end
+	end
+end
+
+local function bloquearHerramientas(modelo)
+	local pl = Players:GetPlayerFromCharacter(modelo)
+	if not pl then return end
+	if modelo:GetAttribute("SpideySinHerramientas") then return end
+	modelo:SetAttribute("SpideySinHerramientas", true)
+	modelo.ChildAdded:Connect(function(obj)
+		if obj:IsA("Tool") then
+			task.defer(function()
+				local bp = pl:FindFirstChildOfClass("Backpack")
+				if obj.Parent == modelo and bp then
+					obj.Parent = bp
+				end
+			end)
+		end
+	end)
+end
+
+local function desmembrarCarga(grabador)
+	local e = cargaDe[grabador]
+	if not e or e.desmembrado then return end
+	e.desmembrado = true
+	local modelo = e.modelo
+	if not modelo or not modelo.Parent then return end
+	moverHerramientasAlBackpack(modelo)
+	bloquearHerramientas(modelo)
+	RE_Cuerpo:FireClient(grabador, "Z")
+	print("[Spidey V11.2] desmembrando para todos: " .. modelo.Name)
+
+	e.basura = {}
+	for i, nombres in ipairs(GRUPOS_CUERPO) do
+		task.delay((i - 1) * 0.16, function()
+			if cargaDe[grabador] ~= e or not modelo.Parent then return end
+			local centro = modelo:GetPivot().Position
+			cortarGrupo(modelo, nombres, centro, e.basura)
+		end)
+	end
+
+	-- a los 2 s se suelta solo (como pulsar G)
+	task.delay(2, function()
+		if cargaDe[grabador] == e then
+			soltar(grabador, "auto 2s")
+		end
+	end)
+end
+
+-- Para pruebas: desmembrar un modelo sin necesidad de estar cargandolo.
+local function desmembrarModelo(modelo, basura)
+	if not modelo or not modelo.Parent then return end
+	moverHerramientasAlBackpack(modelo)
+	bloquearHerramientas(modelo)
+	for i, nombres in ipairs(GRUPOS_CUERPO) do
+		task.delay((i - 1) * 0.16, function()
+			if modelo.Parent then
+				local centro = modelo:GetPivot().Position
+				cortarGrupo(modelo, nombres, centro, basura)
+			end
+		end)
+	end
+	task.delay(2.5, function()
+		for _, d in ipairs(basura) do
+			if d and d.Parent then d:Destroy() end
+		end
+	end)
+end
+
+RE_Cuerpo.OnServerEvent:Connect(function(jugador, accion)
+	if type(accion) ~= "string" then return end
+	if accion == "GRAB" then
+		if cargaDe[jugador] then return end
+		local c = jugador.Character
+		if c and cargas[c] then return end
+		local ahora = os.clock()
+		if ultimoIntento[jugador] and ahora - ultimoIntento[jugador] < 0.35 then return end
+		ultimoIntento[jugador] = ahora
+		local modelo = buscarVictima(jugador)
+		if not modelo then
+			RE_Cuerpo:FireClient(jugador, "NO")
+			return
+		end
+		iniciarCarga(jugador, modelo)
+	elseif accion == "RELEASE" then
+		soltar(jugador, "manual")
+	elseif accion == "Z" then
+		desmembrarCarga(jugador)
+	elseif accion == "SELFTEST" and RunService:IsStudio() then
+		local c = jugador.Character
+		if c and not cargas[c] then
+			desmembrarModelo(c, {})
+		end
+	end
+end)
+
+RunService.Heartbeat:Connect(function()
+	for grabador, e in pairs(cargaDe) do
+		local gc = grabador.Character
+		local gh = gc and gc:FindFirstChildOfClass("Humanoid")
+		local gr = hrpDe(gc)
+		local modelo = e.modelo
+		if not grabador.Parent or not gc or not gh or gh.Health <= 0 or not gr
+			or not modelo or not modelo.Parent or not e.raiz.Parent
+			or not e.humanoide.Parent then
+			soltar(grabador, "auto")
+		else
+			-- Reafirma el ancla y el bloqueo por si el cliente de la
+			-- victima intenta mover/desanclar su personaje.
+			if not e.raiz.Anchored then e.raiz.Anchored = true end
+			if e.humanoide.WalkSpeed ~= 0 then e.humanoide.WalkSpeed = 0 end
+			if not e.humanoide.PlatformStand then e.humanoide.PlatformStand = true end
+			local delante = gr.CFrame * CFrame.new(0, 0.15, -DIST_CARGA)
+			delante = delante * CFrame.Angles(math.rad(-84), 0, math.rad(6))
+			modelo:PivotTo(delante)
+		end
+	end
+end)
+
+local function conectarJugadorCuerpo(pl)
+	pl.CharacterRemoving:Connect(function(c)
+		if cargaDe[pl] then
+			soltar(pl, "respawn del agarrador")
+		end
+		if c and cargas[c] then
+			soltar(cargas[c].grabador, "respawn de la victima")
+		end
+	end)
+end
+for _, pl in ipairs(Players:GetPlayers()) do
+	conectarJugadorCuerpo(pl)
+end
+Players.PlayerAdded:Connect(conectarJugadorCuerpo)
+Players.PlayerRemoving:Connect(function(pl)
+	if cargaDe[pl] then
+		soltar(pl, "salio el agarrador")
+	end
+	if pl.Character and cargas[pl.Character] then
+		soltar(cargas[pl.Character].grabador, "salio la victima")
+	end
+end)
+
+-- API de servidor para pruebas/avanzado (solo accesible desde scripts
+-- de servidor o la consola de Studio; los exploiters no la ven).
+_G.SpideyV11Servidor = {
+	info = function()
+		local t = {}
+		for modelo, e in pairs(cargas) do
+			table.insert(t, modelo.Name .. " <- " .. e.grabador.Name .. (e.desmembrado and " (sin extremidades)" or ""))
+		end
+		if #t == 0 then return "sin agarres" end
+		return table.concat(t, " | ")
+	end,
+	soltar = function(pl)
+		soltar(pl, "api")
+	end,
+	desmembrarJugador = function(pl)
+		if not RunService:IsStudio() then return false end
+		local c = pl and pl.Character
+		if not c then return false end
+		desmembrarModelo(c, {})
+		return true
+	end,
+}
+
+print("[Spidey V11.2] cuerpo listo: agarre y desmembrado replicados por RE_Cuerpo")
+
 print("[Spidey V11] Servidor listo; valida telaranas y difunde animaciones por RE_Anim")
 
 else
@@ -382,6 +763,7 @@ end
 local RE_Web = asegurarRemoto("RE_Web")
 local RE_Efecto = asegurarRemoto("RE_Efecto")
 local RE_Anim = asegurarRemoto("RE_Anim")
+local RE_Cuerpo = asegurarRemoto("RE_Cuerpo")
 
 -- Sonidos opcionales: si SpideyAssets no existe, sigue sin audio.
 local Assets = RS:FindFirstChild("SpideyAssets")
@@ -1869,7 +2251,9 @@ end
 -----------------------------------------------------------------
 -- BUCLE PRINCIPAL
 -----------------------------------------------------------------
-local agarrado = nil -- V11: victima que estas cargando
+local agarrado = nil -- V11: victima que estas cargando (modo local)
+local cargandoRemoto = false -- V11.2: el servidor confirma que cargas a alguien
+local victimaRemota = nil
 local function bucle(dt)
 	if not hrp or not hum then return end
 
@@ -1921,7 +2305,7 @@ local function bucle(dt)
 			end
 		end
 		Camara.Update(dt, v, lat, false)
-		if agarrado and poseSpideyActiva and char and char.Parent then Pose.Objetivo(Pose.Aterrizaje(0.55), char) end
+		if (agarrado or cargandoRemoto) and poseSpideyActiva and char and char.Parent then Pose.Objetivo(Pose.Aterrizaje(0.55), char) end
 		Pose.Update(dt)
 		return
 	end
@@ -1947,7 +2331,7 @@ local function bucle(dt)
 				Pose.Objetivo(Pose.Trepa((os.clock() / 0.34) % 1 < 0.5), char)
 			end
 			Camara.Update(dt, v, lat, false)
-			if agarrado and poseSpideyActiva and char and char.Parent then Pose.Objetivo(Pose.Aterrizaje(0.55), char) end
+			if (agarrado or cargandoRemoto) and poseSpideyActiva and char and char.Parent then Pose.Objetivo(Pose.Aterrizaje(0.55), char) end
 			Pose.Update(dt)
 			return
 		end
@@ -1997,7 +2381,7 @@ local function bucle(dt)
 	end
 
 	Camara.Update(dt, v, lat, enSuelo)
-	if agarrado and poseSpideyActiva and char and char.Parent then Pose.Objetivo(Pose.Aterrizaje(0.55), char) end
+	if (agarrado or cargandoRemoto) and poseSpideyActiva and char and char.Parent then Pose.Objetivo(Pose.Aterrizaje(0.55), char) end
 	Pose.Update(dt)
 
 	if v.Magnitude > 55 and not enSuelo and os.clock() - ultimoSonido > 0.55 then
@@ -2358,10 +2742,15 @@ end
 
 RunService.Heartbeat:Connect(bucle)
 -----------------------------------------------------------------
--- V11 · AGARRE (Ctrl+G), DESMEMBRADO (Z) y ESP (J)
--- Efectos LOCALES: en juegos ajenos (Da Hood) solo los ve el
--- jugador que ejecuta el script. En tus juegos con servidor
--- instalado se comporta igual, sin replicar a otros clientes.
+-- V11.2 · AGARRE (Ctrl+G), DESMEMBRADO (Z) y ESP (J)
+-- DOS MODOS:
+--  * CON SERVIDOR (tu juego, con SpideyV11 en ServerScriptService):
+--    el servidor mueve a la victima y le quita las partes de verdad.
+--    Lo ven TODOS los jugadores y la victima lo siente en su cuerpo.
+--  * SIN SERVIDOR (Da Hood / executor): el cuerpo real de otra
+--    persona no se puede tocar desde el cliente. Para que al menos
+--    se vea bien, se oculta el cuerpo real y se muestra un clon
+--    delante de ti; solo lo ves tu.
 -----------------------------------------------------------------
 local V11 = {}
 local basuraCuerpo = {}       -- partes desmembradas que vuelan
@@ -2458,87 +2847,8 @@ local function buscarCuerpo()
 	return mejor
 end
 
-local function soltarAgarre(motivo)
-	if not agarrado then return end
-	local a = agarrado
-	agarrado = nil
-	-- las partes que volaron desaparecen poco despues de soltar
-	if a.basura and #a.basura > 0 then
-		local lista = a.basura
-		a.basura = nil
-		task.delay(0.5, function()
-			for _, d in ipairs(lista) do
-				if d then
-					local i = table.find(basuraCuerpo, d)
-					if i then table.remove(basuraCuerpo, i) end
-					if d.Parent then d:Destroy() end
-				end
-			end
-		end)
-	end
-	print("[Spidey V11] agarre soltado (" .. tostring(motivo or "manual") .. ")")
-	mostrarHUD(nil)
-end
-
-function V11.Agarrar()
-	if not char or not hrp or not hum or hum.Health <= 0 then
-		print("[Spidey V11] no puedes agarrar sin personaje vivo")
-		return false
-	end
-	if agarrado then
-		soltarAgarre("g")
-		return true
-	end
-	local modelo = buscarCuerpo()
-	if not modelo then
-		print("[Spidey V11] no hay ningun cuerpo debajo/cerca (Ctrl+G)")
-		return false
-	end
-	agarrado = {
-		modelo = modelo,
-		jugador = Players:GetPlayerFromCharacter(modelo),
-		desmembrado = false,
-		basura = {},
-	}
-	print("[Spidey V11] agarrado de la pierna: " .. modelo.Name)
-	mostrarHUD("CARGANDO: " .. modelo.Name .. "   |   Z = desmembrar   |   G = soltar")
-	return true
-end
-
-function V11.Soltar(motivo)
-	soltarAgarre(motivo)
-end
-
--- Cada frame: la victima flota delante del jugador, acostada
--- (agarrada de la pierna). El agachado se aplica en bucle().
-local function actualizarAgarre()
-	local a = agarrado
-	if not a then return end
-	if not char or not char.Parent or not hrp or not hrp.Parent then
-		soltarAgarre("reinicio local")
-		return
-	end
-	if hum and hum.Health <= 0 then
-		soltarAgarre("moriste")
-		return
-	end
-	local m = a.modelo
-	if not m or not m.Parent or (a.jugador and a.jugador.Character ~= m) then
-		soltarAgarre("la victima respawneo")
-		return
-	end
-	if not m:FindFirstChildOfClass("Humanoid") then
-		soltarAgarre("la victima desaparecio")
-		return
-	end
-	local delante = hrp.CFrame * CFrame.new(0, 0.15, -DIST_AGARRE)
-	delante = delante * CFrame.Angles(math.rad(-84), 0, math.rad(6))
-	m:PivotTo(delante)
-end
-
 -----------------------------------------------------------------
--- Desmembrado (Z): las partes salen volando poco a poco; a los
--- 2 s se suelta el agarre y las partes desaparecen.
+-- Grupos de partes (R15 y R6) y utilidades de corte.
 -----------------------------------------------------------------
 local GRUPOS_CUERPO = {
 	{ "RightUpperArm", "RightLowerArm", "RightHand" },
@@ -2580,66 +2890,182 @@ local function lanzarGrupo(partes, centro)
 	end
 end
 
-local function desmembrar()
-	if not agarrado or agarrado.desmembrado then return end
-	local a = agarrado
-	local m = a.modelo
-	a.desmembrado = true
-	local centro = m:GetPivot().Position
-	print("[Spidey V11] desmembrando poco a poco: " .. m.Name)
-	mostrarHUD("DESMEMBRANDO: " .. m.Name)
-
-	for i, nombres in ipairs(GRUPOS_CUERPO) do
-		task.delay((i - 1) * 0.16, function()
-			if agarrado ~= a or not m.Parent then return end
-			local partes, set = {}, {}
-			for _, n in ipairs(nombres) do
-				local p = m:FindFirstChild(n)
-				if p and p:IsA("BasePart") then
-					partes[#partes + 1] = p
-					set[p] = true
-				end
-			end
-			if #partes == 0 then return end
-			-- cortar las uniones que atan el grupo al resto del cuerpo
-			for _, d in ipairs(m:GetDescendants()) do
-				if parteEnGrupo(d, set) then d:Destroy() end
-			end
-			-- las uniones internas del grupo ya no hacen falta
-			for _, p in ipairs(partes) do
-				for _, d in ipairs(p:GetChildren()) do
-					if d:IsA("JointInstance") or d:IsA("WeldConstraint") or d:IsA("AnimationConstraint") then
-						d:Destroy()
-					end
-				end
-			end
-			local debris = Instance.new("Model")
-			debris.Name = "SpideyDebris"
-			for _, p in ipairs(partes) do
-				p.Anchored = true
-				p.CanCollide = false
-				p.CanQuery = false
-				p.Parent = debris
-			end
-			debris.Parent = workspace
-			basuraCuerpo[#basuraCuerpo + 1] = debris
-			table.insert(a.basura, debris)
-			lanzarGrupo(partes, centro)
-		end)
+-----------------------------------------------------------------
+-- MODO LOCAL: ocultar el cuerpo real y mostrar un clon delante.
+-- Asi el agarre no se pelea con la posicion que llega del servidor.
+-----------------------------------------------------------------
+local function ocultarModeloReal(modelo)
+	if not modelo or not modelo.Parent then return nil end
+	local datos = { partes = {}, decals = {}, efectos = {}, guis = {}, ropa = {}, highlights = {}, hum = nil, dist = nil }
+	local h = modelo:FindFirstChildOfClass("Humanoid")
+	if h then
+		datos.hum = h
+		datos.dist = h.DisplayDistanceType
+		h.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 	end
-
-	-- a los 2 s se suelta el agarre (como pulsar G)
-	task.delay(2, function()
-		if agarrado == a then
-			soltarAgarre("auto 2s")
+	for _, d in ipairs(modelo:GetDescendants()) do
+		if d:IsA("BasePart") then
+			datos.partes[d] = { d.Transparency, d.LocalTransparencyModifier }
+			d.Transparency = 1
+			d.LocalTransparencyModifier = 1
+		elseif d:IsA("Decal") or d:IsA("Texture") then
+			datos.decals[d] = d.Transparency
+			d.Transparency = 1
+		elseif d:IsA("ParticleEmitter") or d:IsA("Trail") or d:IsA("Beam") or d:IsA("Fire") or d:IsA("Smoke") or d:IsA("Sparkles") then
+			datos.efectos[d] = d.Enabled
+			d.Enabled = false
+		elseif d:IsA("BillboardGui") or d:IsA("SurfaceGui") then
+			datos.guis[d] = d.Enabled
+			d.Enabled = false
+		elseif d:IsA("Shirt") or d:IsA("Pants") or d:IsA("ShirtGraphic") then
+			datos.ropa[d] = d.Parent
+			d.Parent = nil
+		elseif d:IsA("Highlight") then
+			datos.highlights[d] = d.Enabled
+			d.Enabled = false
 		end
-	end)
+	end
+	return datos
 end
-V11.Desmembrar = desmembrar
+
+local function restaurarModeloReal(modelo, datos)
+	if not datos then return end
+	for d, t in pairs(datos.partes) do
+		if d and d.Parent then
+			d.Transparency = t[1]
+			d.LocalTransparencyModifier = t[2]
+		end
+	end
+	for d, t in pairs(datos.decals) do
+		if d and d.Parent then d.Transparency = t end
+	end
+	for d, e in pairs(datos.efectos) do
+		if d and d.Parent then d.Enabled = e end
+	end
+	for d, e in pairs(datos.guis) do
+		if d and d.Parent then d.Enabled = e end
+	end
+	for d, e in pairs(datos.highlights) do
+		if d and d.Parent then d.Enabled = e end
+	end
+	if modelo and modelo.Parent then
+		for d in pairs(datos.ropa) do
+			if d and not d.Parent then d.Parent = modelo end
+		end
+		if datos.hum and datos.hum.Parent and datos.dist then
+			datos.hum.DisplayDistanceType = datos.dist
+		end
+	end
+end
+
+-- Clona la victima para TI: partes ancladas, sin scripts ni herramientas.
+local function crearClon(modelo, destino)
+	if not modelo or not modelo.Parent then return nil end
+	modelo.Archivable = true
+	local ok, clon = pcall(function() return modelo:Clone() end)
+	if not ok or not clon then return nil end
+	clon.Name = "SpideyCargado"
+	for _, d in ipairs(clon:GetDescendants()) do
+		if d:IsA("Script") or d:IsA("LocalScript") or d:IsA("Tool") then
+			d:Destroy()
+		elseif d:IsA("BillboardGui") or d:IsA("SurfaceGui") or d:IsA("Highlight") or d:IsA("ForceField") then
+			d:Destroy()
+		elseif d:IsA("JointInstance") and (d.Name == "RightGrip" or d.Name == "LeftGrip") then
+			d:Destroy()
+		end
+	end
+	local h = clon:FindFirstChildOfClass("Humanoid")
+	if h then
+		h.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+		h.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+		h.PlatformStand = true
+		h.AutoRotate = false
+		h.WalkSpeed = 0
+		h.JumpPower = 0
+	end
+	for _, d in ipairs(clon:GetDescendants()) do
+		if d:IsA("BasePart") then
+			d.Anchored = true
+			d.CanCollide = false
+			d.CanQuery = false
+			d.CanTouch = false
+		elseif d:IsA("ParticleEmitter") or d:IsA("Trail") or d:IsA("Beam") or d:IsA("Fire") or d:IsA("Smoke") or d:IsA("Sparkles") then
+			d.Enabled = false
+		end
+	end
+	if destino then clon:PivotTo(destino) end
+	return clon
+end
+
+-- Quita las partes del cuerpo REAL (oculto) para que al soltar quede
+-- sin brazos/piernas aunque el efecto sea local.
+local function quitarPartesDeModelo(modelo, nombres)
+	if not modelo or not modelo.Parent then return end
+	local partes, set = {}, {}
+	for _, n in ipairs(nombres) do
+		local p = modelo:FindFirstChild(n)
+		if p and p:IsA("BasePart") then
+			partes[#partes + 1] = p
+			set[p] = true
+		end
+	end
+	if #partes == 0 then return end
+	for _, d in ipairs(modelo:GetDescendants()) do
+		if parteEnGrupo(d, set) then d:Destroy() end
+	end
+	for _, p in ipairs(partes) do
+		for _, d in ipairs(p:GetChildren()) do
+			if d:IsA("JointInstance") or d:IsA("WeldConstraint") or d:IsA("AnimationConstraint") then
+				d:Destroy()
+			end
+		end
+	end
+	for _, p in ipairs(partes) do
+		if p.Parent then p:Destroy() end
+	end
+end
+
+-- Corta un grupo del CLON visible y lo lanza volando.
+local function cortarGrupoVisible(modelo, nombres, basura)
+	if not modelo or not modelo.Parent then return end
+	local partes, set = {}, {}
+	for _, n in ipairs(nombres) do
+		local p = modelo:FindFirstChild(n)
+		if p and p:IsA("BasePart") then
+			partes[#partes + 1] = p
+			set[p] = true
+		end
+	end
+	if #partes == 0 then return end
+	for _, d in ipairs(modelo:GetDescendants()) do
+		if parteEnGrupo(d, set) then d:Destroy() end
+	end
+	for _, p in ipairs(partes) do
+		for _, d in ipairs(p:GetChildren()) do
+			if d:IsA("JointInstance") or d:IsA("WeldConstraint") or d:IsA("AnimationConstraint") then
+				d:Destroy()
+			end
+		end
+	end
+	local centro = modelo:GetPivot().Position
+	local debris = Instance.new("Model")
+	debris.Name = "SpideyDebris"
+	for _, p in ipairs(partes) do
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.Parent = debris
+	end
+	debris.Parent = workspace
+	basuraCuerpo[#basuraCuerpo + 1] = debris
+	basura[#basura + 1] = debris
+	lanzarGrupo(partes, centro)
+end
 
 -----------------------------------------------------------------
 -- ESP (J): contorno blanco + nombre del usuario encima.
 -- Highlight con AlwaysOnTop = se ve a traves de las paredes.
+-- El texto es un poco mas pequeno que en V11 (200x28 en vez de 220x34).
 -----------------------------------------------------------------
 local function quitarESP()
 	for _, datos in pairs(espDatos) do
@@ -2667,8 +3093,8 @@ local function crearESPVisual(modelo, nombre)
 	end
 	local bb = Instance.new("BillboardGui")
 	bb.Name = "SpideyESP_Nombre"
-	bb.Size = UDim2.fromOffset(220, 34)
-	bb.StudsOffset = Vector3.new(0, 3.0, 0)
+	bb.Size = UDim2.fromOffset(200, 28)
+	bb.StudsOffset = Vector3.new(0, 2.9, 0)
 	bb.AlwaysOnTop = true
 	bb.LightInfluence = 0
 	bb.MaxDistance = 5000
@@ -2691,6 +3117,9 @@ local function aplicarESPPJugador(p)
 	if not espActivo or p == player then return end
 	local c = p.Character
 	if not c then return end
+	-- Si estas cargando a esta persona, su cuerpo real esta oculto:
+	-- el ESP se le pondria en el sitio equivocado. Se le devuelve al soltar.
+	if agarrado and agarrado.modelo == c then return end
 	local datos = espDatos[p]
 	if datos and datos.modelo == c and datos.hl and datos.hl.Parent then return end
 	if datos then
@@ -2702,6 +3131,20 @@ local function aplicarESPPJugador(p)
 	if creado then espDatos[p] = creado end
 end
 
+local function ocultarESPDe(jugador)
+	local datos = jugador and espDatos[jugador]
+	if not datos then return nil end
+	if datos.hl then datos.hl.Enabled = false end
+	if datos.bb then datos.bb.Enabled = false end
+	return datos
+end
+
+local function restaurarESPDe(jugador, datos)
+	if not datos then return end
+	if datos.hl and datos.hl.Parent then datos.hl.Enabled = true end
+	if datos.bb and datos.bb.Parent then datos.bb.Enabled = true end
+end
+
 function V11.AlternarESP()
 	espActivo = not espActivo
 	quitarESP()
@@ -2709,14 +3152,14 @@ function V11.AlternarESP()
 		for _, p in ipairs(Players:GetPlayers()) do
 			aplicarESPPJugador(p)
 		end
-		print("[Spidey V11] ESP ACTIVADO: contorno blanco + nombres (atraviesa paredes)")
+		print("[Spidey V11.2] ESP ACTIVADO: contorno blanco + nombres (atraviesa paredes)")
 		mostrarHUD("ESP ACTIVADO (J para apagar)")
 	else
-		print("[Spidey V11] ESP DESACTIVADO")
+		print("[Spidey V11.2] ESP DESACTIVADO")
 		mostrarHUD("ESP DESACTIVADO")
 	end
 	task.delay(2, function()
-		if not agarrado then mostrarHUD(nil) end
+		if not agarrado and not cargandoRemoto then mostrarHUD(nil) end
 	end)
 	return espActivo
 end
@@ -2762,6 +3205,219 @@ Players.PlayerRemoving:Connect(function(p)
 end)
 
 -----------------------------------------------------------------
+-- MODO LOCAL: soltar / desmembrar sobre el clon.
+-----------------------------------------------------------------
+local function soltarAgarre(motivo)
+	if not agarrado then return end
+	local a = agarrado
+	agarrado = nil
+	if a.clon and a.clon.Parent then a.clon:Destroy() end
+	restaurarModeloReal(a.modelo, a.oculto)
+	if a.jugador and a.espOculto then restaurarESPDe(a.jugador, a.espOculto) end
+	-- Si el ESP estaba encendido, se le vuelve a poner al cuerpo real
+	-- (al agarrarlo se lo habia quitado para no delatar el cuerpo oculto).
+	if a.jugador and espActivo then aplicarESPPJugador(a.jugador) end
+	if a.basura and #a.basura > 0 then
+		local lista = a.basura
+		a.basura = nil
+		task.delay(0.5, function()
+			for _, d in ipairs(lista) do
+				local i = table.find(basuraCuerpo, d)
+				if i then table.remove(basuraCuerpo, i) end
+				if d and d.Parent then d:Destroy() end
+			end
+		end)
+	end
+	print("[Spidey V11.2] agarre soltado (" .. tostring(motivo or "manual") .. ")")
+	mostrarHUD(nil)
+end
+
+local function desmembrarLocal()
+	if not agarrado or agarrado.desmembrado then return end
+	local a = agarrado
+	a.desmembrado = true
+	local visible = (a.clon and a.clon.Parent) and a.clon or a.modelo
+	local real = a.modelo
+	print("[Spidey V11.2] desmembrando poco a poco (local): " .. tostring(real and real.Name))
+	mostrarHUD("DESMEMBRANDO: " .. tostring(real and real.Name or "cuerpo"))
+
+	for i, nombres in ipairs(GRUPOS_CUERPO) do
+		task.delay((i - 1) * 0.16, function()
+			if agarrado ~= a then return end
+			if real and real.Parent then quitarPartesDeModelo(real, nombres) end
+			if visible and visible.Parent then cortarGrupoVisible(visible, nombres, a.basura) end
+		end)
+	end
+
+	-- a los 2 s se suelta el agarre (como pulsar G)
+	task.delay(2, function()
+		if agarrado == a then
+			soltarAgarre("auto 2s")
+		end
+	end)
+end
+
+local function actualizarAgarre()
+	local a = agarrado
+	if not a then return end
+	if not char or not char.Parent or not hrp or not hrp.Parent then
+		soltarAgarre("reinicio local")
+		return
+	end
+	if hum and hum.Health <= 0 then
+		soltarAgarre("moriste")
+		return
+	end
+	local m = a.modelo
+	if not m or not m.Parent or (a.jugador and a.jugador.Character ~= m) then
+		soltarAgarre("la victima respawneo")
+		return
+	end
+	if not m:FindFirstChildOfClass("Humanoid") then
+		soltarAgarre("la victima desaparecio")
+		return
+	end
+	local delante = hrp.CFrame * CFrame.new(0, 0.15, -DIST_AGARRE)
+	delante = delante * CFrame.Angles(math.rad(-84), 0, math.rad(6))
+	if a.clon and a.clon.Parent then
+		a.clon:PivotTo(delante)
+	else
+		m:PivotTo(delante)
+	end
+end
+
+-----------------------------------------------------------------
+-- API V11: agarra/suelta/desmembra segun el modo.
+-----------------------------------------------------------------
+function V11.Agarrar()
+	if not sinServidor then
+		if player:GetAttribute("SpideyAgarrando") then
+			RE_Cuerpo:FireServer("RELEASE")
+		else
+			RE_Cuerpo:FireServer("GRAB")
+		end
+		return true
+	end
+	if not char or not hrp or not hum or hum.Health <= 0 then
+		print("[Spidey V11.2] no puedes agarrar sin personaje vivo")
+		return false
+	end
+	if agarrado then
+		soltarAgarre("g")
+		return true
+	end
+	local modelo = buscarCuerpo()
+	if not modelo then
+		print("[Spidey V11.2] no hay ningun cuerpo debajo/cerca (Ctrl+G)")
+		return false
+	end
+
+	local delante = hrp.CFrame * CFrame.new(0, 0.15, -DIST_AGARRE)
+	delante = delante * CFrame.Angles(math.rad(-84), 0, math.rad(6))
+	-- El clon se crea ANTES de ocultar el real (si no, saldria invisible).
+	local clon = crearClon(modelo, delante)
+	if not clon then
+		print("[Spidey V11.2] no se pudo clonar la victima")
+		return false
+	end
+	local oculto = ocultarModeloReal(modelo)
+	local jugador = Players:GetPlayerFromCharacter(modelo)
+	local a = {
+		modelo = modelo,
+		jugador = jugador,
+		clon = clon,
+		oculto = oculto,
+		desmembrado = false,
+		basura = {},
+	}
+	if jugador then
+		a.espOculto = ocultarESPDe(jugador)
+	end
+	clon.Parent = workspace
+	agarrado = a
+	print("[Spidey V11.2] agarrado de la pierna (local): " .. modelo.Name)
+	mostrarHUD("CARGANDO: " .. modelo.Name .. "   |   Z = desmembrar   |   G = soltar")
+	return true
+end
+
+function V11.Soltar(motivo)
+	if not sinServidor then
+		RE_Cuerpo:FireServer("RELEASE")
+		return
+	end
+	soltarAgarre(motivo)
+end
+
+function V11.Desmembrar()
+	if not sinServidor then
+		RE_Cuerpo:FireServer("Z")
+		return
+	end
+	desmembrarLocal()
+end
+
+-----------------------------------------------------------------
+-- MODO SERVIDOR: el servidor manda; aqui solo se muestra el HUD.
+-----------------------------------------------------------------
+local function actualizarCargaRemota()
+	if sinServidor then return end
+	local v = player:GetAttribute("SpideyAgarrando")
+	local antes = cargandoRemoto
+	cargandoRemoto = type(v) == "string" and v ~= ""
+	victimaRemota = nil
+	if cargandoRemoto then
+		for _, p in ipairs(Players:GetPlayers()) do
+			if p.Character and p.Character.Name == v then
+				victimaRemota = p.Character
+				break
+			end
+		end
+		if not victimaRemota then
+			victimaRemota = workspace:FindFirstChild(v, true)
+		end
+		mostrarHUD("CARGANDO: " .. v .. "   |   Z = desmembrar   |   G = soltar")
+	elseif antes then
+		mostrarHUD(nil)
+	end
+end
+
+if not sinServidor then
+	player:GetAttributeChangedSignal("SpideyAgarrando"):Connect(actualizarCargaRemota)
+	actualizarCargaRemota()
+	RE_Cuerpo.OnClientEvent:Connect(function(accion, modelo)
+		if accion == "NO" then
+			mostrarHUD("No hay ningun cuerpo debajo/cerca")
+			task.delay(1.5, function()
+				if not cargandoRemoto then mostrarHUD(nil) end
+			end)
+		elseif accion == "OK" then
+			victimaRemota = modelo
+		elseif accion == "Z" then
+			mostrarHUD("DESMEMBRANDO...")
+		end
+	end)
+
+	-- Si el servidor te esta cargando a TI, muestralo tambien en tu
+	-- pantalla: asi la victima siente que la levantaron (y no puede
+	-- hacer nada hasta que la suelten o respawnee).
+	local function observarCargaVictima(c)
+		if not c then return end
+		local function ver()
+			local v = c:GetAttribute("SpideyCargadoPor")
+			if v then
+				mostrarHUD("TE ESTAN CARGANDO: " .. tostring(v))
+			else
+				mostrarHUD(nil)
+			end
+		end
+		c:GetAttributeChangedSignal("SpideyCargadoPor"):Connect(ver)
+		ver()
+	end
+	if char then observarCargaVictima(char) end
+	player.CharacterAdded:Connect(observarCargaVictima)
+end
+
+-----------------------------------------------------------------
 -- Teclas: Ctrl+G agarrar / G soltar · Z desmembrar · J ESP
 -----------------------------------------------------------------
 UIS.InputBegan:Connect(function(input, gpe)
@@ -2770,24 +3426,33 @@ UIS.InputBegan:Connect(function(input, gpe)
 	if kc == Enum.KeyCode.J then
 		V11.AlternarESP()
 	elseif kc == Enum.KeyCode.G then
-		if agarrado then
-			soltarAgarre("g")
+		local ctrl = UIS:IsKeyDown(Enum.KeyCode.LeftControl) or UIS:IsKeyDown(Enum.KeyCode.RightControl)
+		if sinServidor then
+			if agarrado then soltarAgarre("g") elseif ctrl then V11.Agarrar() end
 		else
-			local ctrl = UIS:IsKeyDown(Enum.KeyCode.LeftControl) or UIS:IsKeyDown(Enum.KeyCode.RightControl)
-			if ctrl then V11.Agarrar() end
+			if cargandoRemoto then
+				RE_Cuerpo:FireServer("RELEASE")
+			elseif ctrl then
+				V11.Agarrar()
+			end
 		end
 	elseif kc == Enum.KeyCode.Z then
-		if agarrado then V11.Desmembrar() end
+		if sinServidor then
+			if agarrado then V11.Desmembrar() end
+		elseif cargandoRemoto then
+			RE_Cuerpo:FireServer("Z")
+		end
 	end
 end)
 
--- RenderStepped: los demas jugadores se actualizan por red; hay que
--- escribir su posicion justo antes de dibujar el frame para que se
--- vean agarrados y no saltando a su posicion real.
+-- RenderStepped: solo el modo local necesita fijar la posicion cada
+-- frame (el servidor ya mueve el cuerpo real en el modo servidor).
 RunService.RenderStepped:Connect(actualizarAgarre)
 
 player.CharacterRemoving:Connect(function()
-	agarrado = nil
+	if agarrado then soltarAgarre("reinicio local") end
+	cargandoRemoto = false
+	victimaRemota = nil
 	limpiarBasura()
 	mostrarHUD(nil)
 end)
@@ -2833,6 +3498,7 @@ function _G.SpideyInfo()
 		"ancla=" .. tostring(anclaPos),
 		"esp=" .. tostring(espActivo),
 		"agarrado=" .. tostring(agarrado and agarrado.modelo and agarrado.modelo.Name),
+		"cargandoRemoto=" .. tostring(cargandoRemoto),
 	}
 	for modelo, s in pairs(secuencias) do
 		local transcurrido = s.pausa and s.tFijo or (workspace:GetServerTimeNow() - s.inicio)
@@ -2842,7 +3508,7 @@ function _G.SpideyInfo()
 end
 
 -- GANCHO DE PRUEBAS (dev): LocalPlayer:SetAttribute("SpideyTest", ...)
--- Valores: "A", "B", "A:0.5" (pausa en t), "STOP", "INFO", "EQUIP", "CLICK", "RELEASE", "GRAB", "Z", "ESP", "ESPTEST", "SIMULARA", "SIMULARB"
+-- Valores: "A", "B", "A:0.5" (pausa en t), "STOP", "INFO", "EQUIP", "CLICK", "RELEASE", "GRAB", "Z", "ESP", "ESPTEST", "SELFTEST", "SIMULARA", "SIMULARB"
 local ultimoCmd
 player:GetAttributeChangedSignal("SpideyTest"):Connect(function()
 	local v = player:GetAttribute("SpideyTest")
@@ -2857,6 +3523,9 @@ player:GetAttributeChangedSignal("SpideyTest"):Connect(function()
 	elseif c == "Z" then
 		V11.Desmembrar()
 		print("[SpideyTest] Z")
+	elseif c == "SELFTEST" then
+		RE_Cuerpo:FireServer("SELFTEST")
+		print("[SpideyTest] SELFTEST (solo Studio; el servidor desmiembra tu personaje)")
 	elseif c == "ESP" then
 		print("[SpideyTest] ESP", V11.AlternarESP())
 	elseif c == "ESPTEST" then
