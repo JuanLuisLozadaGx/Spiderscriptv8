@@ -1,11 +1,20 @@
-# Spiderscript V11.7 🕷️
+# Spiderscript V11.8 🕷️
 
 Sistema **Spider-Man completo** (telaraña, física de péndulo, trepa, cámara,
 sonidos, GUI y animaciones A/B) **+ agarre, ESP y LOCK** en **un solo archivo
 combinado**: sirve como script de servidor y como LocalScript/executor.
 Se adapta solo con `RunService:IsServer()`.
 
-> **Novedades V11.7 (el Revolver nuevo ya recibe en la cabeza):**
+> **Novedades V11.8 (agarre de la pierna de verdad):**
+> - **Ctrl+G** agarra al cuerpo o persona más cercana **de la pierna** y lo
+>   levanta **delante de ti**, flotando **horizontal a la altura del pecho**, a
+>   **5.5 studs** y con una **oscilación suave**: ya no queda pegado a tu lado.
+> - Al agarrarlo se le **quita la pierna agarrada** (se oculta la derecha; si no
+>   existe, la izquierda). En tu juego lo ven todos; en Da Hood es local. Al
+>   soltar con **G**, el cuerpo y la pierna vuelven a la normalidad.
+> - **Comprobado en Studio** en modo local y en modo servidor; métricas abajo.
+>
+> **V11.7 (se mantiene): el Revolver nuevo ya recibe en la cabeza.**
 > - **CAUSA REAL DEL FALLO:** el `[Revolver]` de la copia nueva de Da Hood
 >   **no dispara en el servidor**: lo hace en **tu cliente** con un
 >   `GunClient` (LocalScript). Ese cliente calcula la dirección con
@@ -52,7 +61,7 @@ Si tu ejecutor cachea la URL, usa la URL por commit:
 | Tecla | Qué hace |
 |---|---|
 | **Q** | **LOCK (funciona en cualquier juego):** pon el mouse sobre una persona y pulsa Q. Contorno blanco en ella y en ti + línea blanca entre los dos. Tu cámara no se mueve; tu personaje gira hacia el enemigo. Q otra vez lo quita (esté el mouse encima o no). Si no hay nadie bajo el mouse, no hace nada. **Las balas de cualquier arma van al objetivo aunque dispares al piso**, tanto en tu juego (servidor propio) como en Da Hood (armas nuevas por `getAim`, armas viejas por el remoto). |
-| **Ctrl + G** | Agarra de la pierna al cuerpo o persona más cercana que esté debajo de ti. Quedas agachado y el cuerpo flota acostado delante de ti. **G** de nuevo lo suelta. |
+| **Ctrl + G** | Agarra de la pierna al cuerpo o persona más cercana que esté debajo de ti. Lo levanta **delante de ti**, flotando **horizontal a la altura del pecho**, separado ~5.5 studs y con una oscilación suave. Al agarrarlo se le **quita la pierna agarrada** (derecha; si no existe, izquierda). **G** de nuevo lo suelta y todo vuelve a la normalidad. |
 | **X + pared** | Trepar (antes era Shift). Shift queda libre. |
 | **J** | ESP: contorno **blanco** + **nombre de usuario** arriba de todos los jugadores, visible **a través de las paredes**. J otra vez lo apaga. |
 | ~~Z~~ | **Eliminado** (desmembrado quitado en V11.3). |
@@ -108,9 +117,11 @@ Con eso:
 - El servidor crea `ReplicatedStorage.SpideyRemotos` con `RE_Cuerpo` y
   `RE_Lock`.
 - Al pulsar **Ctrl+G**, el servidor elige la víctima, **ancla su**
-  `HumanoidRootPart`, la coloca acostada delante de ti y la mueve en cada
-  frame. Todos los clientes ven el cuerpo flotando; la víctima ve en su
-  pantalla `TE ESTAN CARGANDO: <tu nombre>`.
+  `HumanoidRootPart`, la coloca **horizontal a la altura del pecho, 5.5 studs
+  delante de ti**, con una oscilación suave y **sin la pierna agarrada**, y la
+  mueve en cada frame. Todos los clientes ven el cuerpo flotando; la víctima ve
+  en su pantalla `TE ESTAN CARGANDO: <tu nombre>`. Al soltar con **G**, la
+  pierna y el cuerpo vuelven a la normalidad.
 - Al pulsar **Q** con una persona bajo el mouse, el servidor **dirige las
   balas** de todas las armas al objetivo. Solo para el dueño.
 - Al respawnear la víctima, el agarre se suelta solo y todo vuelve normal.
@@ -123,8 +134,10 @@ Si no existe `ReplicatedStorage.SpideyRemotos` (Da Hood, cualquier juego
 ajeno), el script entra en **modo local**:
 
 - Al pulsar **Ctrl+G**, el cliente **oculta el cuerpo real** de la víctima y
-  crea un **clon anclado** delante de ti. El clon sí flota acostado y se mueve
-  contigo; el cuerpo real no se pelea con la red.
+  crea un **clon anclado** **delante de ti, a la altura del pecho y sin la
+  pierna agarrada**. El clon flota con una oscilación suave y se mueve contigo;
+  el cuerpo real no se pelea con la red. Al soltar, el clon se destruye y el
+  cuerpo real vuelve completo.
 - **Solo lo ves tú.** El otro jugador no siente nada y puede seguir usando sus
   herramientas. Es un límite del motor: un executor no puede modificar el
   cuerpo de otra persona en el servidor ni crear scripts de servidor.
@@ -138,6 +151,23 @@ ajeno), el script entra en **modo local**:
 ## Pruebas hechas en Studio (copia nueva `Official Hood.rbxl`)
 
 Esto es lo que se comprobó ejecutando el juego, no solo leyendo el código.
+
+- **V11.8 — AGARRE (modo local y modo servidor), medido en la copia:**
+  - **Modo local** (SpideyV11 desactivado, igual que Da Hood/executor), NPC R15
+    a la misma altura: el clon quedó a **5.50 studs al frente**, **0.00** de
+    lado y **1.30–1.49** de altura (oscilando), con `RightUpperLeg`,
+    `RightLowerLeg` y `RightFoot` en **Transparency 1**; la pierna izquierda
+    siguió visible. HUD: `CARGANDO: SpideyBlanco | G = soltar`. Al soltar: clon
+    destruido, cuerpo real restaurado (19 partes visibles + `HumanoidRootPart`
+    invisible) y pierna derecha de vuelta a **Transparency 0**.
+  - **Modo servidor** (SpideyV11 activo): el NPC real quedó a **5.50 studs al
+    frente**, **0.00** de lado, **1.49** de altura, anclado y con la pierna
+    derecha invisible; el cliente recibió el HUD
+    `CARGANDO: SpideyBlanco | G = soltar`; al soltar, la pierna volvió a **0**,
+    el atributo `SpideyAgarrando` quedó en `nil` y el HUD se limpió.
+  - **Lock comprobado después del cambio:** 2 `SpideyLock` (tú + objetivo) + 1
+    `SpideyLockLinea`, HUD `LOCK: SpideyBlanco | Q = quitar`; al desbloquear,
+    todo a 0.
 
 La copia nueva tiene **dos sistemas de armas**:
 - Viejas en `ServerStorage.Storage.Tools.Weapons` (`[Glock]`, `[AR]`, ...):
@@ -221,7 +251,7 @@ ajenos (Da Hood incluido). Lo importante que se comprobó en vivo:
 > executor. También se comprobó que un executor **no puede** crear
 > `ServerScriptService` ni subir assets en runtime.
 
-Con eso claro, V11.7 mantiene las **3 capas** para que siempre se vea algo:
+Con eso claro, V11.8 mantiene las **3 capas** para que siempre se vea algo:
 
 | Capa | Qué usa | Dónde se ve |
 |------|---------|-------------|
@@ -285,4 +315,4 @@ Nota: si repites el mismo comando exacto, mándale un espacio al final
 - `Resources/Scripts/StarterPlayerScripts/SpideyClienteV11.lua` — copia para el
   LocalScript de StarterPlayerScripts.
 
-Los tres son **idénticos** al `SPIDER V11.7.lua` entregado.
+Los tres son **idénticos** al `SPIDER V11.8.lua` entregado.
