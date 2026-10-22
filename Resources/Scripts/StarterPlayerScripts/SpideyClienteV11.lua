@@ -1,13 +1,30 @@
 --[[
-	SPIDER V10 · TODO EL SISTEMA EN UN SOLO SCRIPT COMBINADO
+	SPIDER V11 · TODO EL SISTEMA EN UN SOLO SCRIPT COMBINADO
 	Servidor + Cliente en el mismo archivo. Se adapta solo.
 
-	QUE HACE V10 (modo universal para Da Hood y cualquier juego):
+	NUEVO EN V11 (teclas):
+	  Ctrl+G  agarra de la pierna al cuerpo/persona mas cercana que
+	          este debajo de ti: quedas agachado y el cuerpo flota
+	          acostado delante de ti. G de nuevo lo suelta.
+	  Z       (mientras lo cargas) le arranca brazos y piernas poco a
+	          poco: las partes salen volando cerca y quedan separadas.
+	          A los 2 s se suelta solo (como pulsar G) y las partes
+	          desaparecen: el cuerpo queda solo con torso/cabeza (puede
+	          caminar, pero no tiene brazos). Si la victima respawnea,
+	          vuelve a la normalidad.
+	  J       ESP: contorno blanco + nombre de usuario encima de TODOS
+	          los jugadores, visible a traves de las paredes.
+	          J otra vez lo apaga.
+	  En juegos ajenos (Da Hood) estos efectos son LOCALES: solo los ve
+	  el jugador que ejecuta el script. No se puede modificar el cuerpo
+	  real de otro jugador sin servidor.
+
+	QUE HACE V11 (modo universal para Da Hood y cualquier juego):
 	  Las animaciones solo se replican por el Animator, y Roblox solo
 	  deja cargar animaciones del DUEÑO del juego (o de Roblox).
 	  Comprobado en vivo: las animaciones de otros usuarios dan
 	  Length = 0 y no se ven aunque las ejecute el mejor executor.
-	  Por eso V10 usa 3 capas para que TODOS te vean:
+	  Por eso V11 usa 3 capas para que TODOS te vean:
 	   1) ANIM_IDS     tus animaciones subidas: cargan en TUS juegos
 	                   (tu copia de Da Hood, tus places). Todos las ven.
 	   2) ANIM_ROBLOX  emotes de Roblox: cargan en CUALQUIER juego.
@@ -23,9 +40,9 @@
 	INSTALACION OPCIONAL EN TU JUEGO (poses exactas para todos):
 	  Son 2 pegados de ESTE MISMO archivo:
 	  1) ServerScriptService > Insert Object > "Script" (NO LocalScript)
-	     llamado SpideyV10 y pega este archivo completo.
+	     llamado SpideyV11 y pega este archivo completo.
 	  2) StarterPlayer > StarterPlayerScripts > "LocalScript"
-	     llamado SpideyClienteV10 y pega este MISMO archivo.
+	     llamado SpideyClienteV11 y pega este MISMO archivo.
 	  3) Publica. El servidor difunde las poses exactas por RE_Anim y
 	     TODOS los jugadores del servidor las ven completas.
 
@@ -39,6 +56,7 @@
 
 	PRUEBAS (consola): LocalPlayer:SetAttribute("SpideyTest", "A")
 	  "B:1.8" congela · "STOP" "INFO" "EQUIP" "CLICK" "RELEASE"
+	  "GRAB" "Z" "ESP" "ESPTEST"
 	  "SIMULARA"/"SIMULARB" clonan tu personaje y le aplican la
 	  secuencia para ver EXACTAMENTE lo que ven los demas.
 ]]
@@ -73,10 +91,10 @@ local RE_Efecto = remoto("RE_Efecto")
 local RE_Anim = remoto("RE_Anim")
 
 -- La mitad cliente de ESTE MISMO archivo debe estar en
--- StarterPlayer.StarterPlayerScripts.SpideyClienteV10 (LocalScript).
+-- StarterPlayer.StarterPlayerScripts.SpideyClienteV11 (LocalScript).
 -- Un Script de servidor no puede crear codigo cliente en runtime.
-if not game:GetService("StarterPlayer").StarterPlayerScripts:FindFirstChild("SpideyClienteV10") then
-	warn("[Spidey V10] Falta el LocalScript SpideyClienteV10 (pegar este mismo archivo en StarterPlayerScripts)")
+if not game:GetService("StarterPlayer").StarterPlayerScripts:FindFirstChild("SpideyClienteV11") then
+	warn("[Spidey V11] Falta el LocalScript SpideyClienteV11 (pegar este mismo archivo en StarterPlayerScripts)")
 end
 
 local CFG = {
@@ -305,16 +323,16 @@ Players.PlayerAdded:Connect(function(player)
 	end)
 end)
 
-print("[Spidey V10] Servidor listo; valida telaranas y difunde animaciones por RE_Anim")
+print("[Spidey V11] Servidor listo; valida telaranas y difunde animaciones por RE_Anim")
 
 else
 --=================================================================
 --  MITAD CLIENTE: telarana, fisica y animaciones A/B procedurales
 --=================================================================
 -- Candado: si otra copia de este script ya corre en este cliente, sale.
-if _G.__SPIDEY_V10_ACTIVO then return end
-_G.__SPIDEY_V10_ACTIVO = true
-print("[Spidey V10] cargando...")
+if _G.__SPIDEY_V11_ACTIVO then return end
+_G.__SPIDEY_V11_ACTIVO = true
+print("[Spidey V11] cargando...")
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
@@ -339,7 +357,7 @@ end
 RE = RS:FindFirstChild("SpideyRemotos")
 if not RE then
 	sinServidor = true
-	print("[Spidey V10] sin servidor: MODO UNIVERSAL (giros visibles para todos por fisica)")
+	print("[Spidey V11] sin servidor: MODO UNIVERSAL (giros visibles para todos por fisica)")
 	RE = Instance.new("Folder")
 	RE.Name = "SpideyRemotos"
 	RE.Parent = RS
@@ -820,7 +838,7 @@ end)()
 local RESET_CLIC = 4
 
 -- ============================================================
--- CAPA VISIBLE V10 (lo que TODOS los jugadores ven)
+-- CAPA VISIBLE V11 (lo que TODOS los jugadores ven)
 -- ============================================================
 -- ANIM_IDS: tus animaciones subidas. Solo CARGAN en juegos cuyo
 -- dueño seas tu (tu copia de Da Hood, tus places). Pega aqui los IDs.
@@ -1468,7 +1486,7 @@ local function probarAnimaciones()
 					end
 					if track.Length > 0 then
 						tracksVisibles[nombre] = track
-						print(string.format("[Spidey V10] %s visible para TODOS (id %d, %.2fs)", nombre, id, track.Length))
+						print(string.format("[Spidey V11] %s visible para TODOS (id %d, %.2fs)", nombre, id, track.Length))
 						break
 					else
 						pcall(function() track:Destroy() end)
@@ -1476,7 +1494,7 @@ local function probarAnimaciones()
 				end
 			end
 			if not tracksVisibles[nombre] and candidatosAnim(nombre)[1] then
-				print("[Spidey V10] " .. nombre .. ": ninguna animacion visible carga en este juego (queda la fisica/poses locales)")
+				print("[Spidey V11] " .. nombre .. ": ninguna animacion visible carga en este juego (queda la fisica/poses locales)")
 			end
 		end
 		animProbandose = false
@@ -1851,6 +1869,7 @@ end
 -----------------------------------------------------------------
 -- BUCLE PRINCIPAL
 -----------------------------------------------------------------
+local agarrado = nil -- V11: victima que estas cargando
 local function bucle(dt)
 	if not hrp or not hum then return end
 
@@ -1902,6 +1921,7 @@ local function bucle(dt)
 			end
 		end
 		Camara.Update(dt, v, lat, false)
+		if agarrado and poseSpideyActiva and char and char.Parent then Pose.Objetivo(Pose.Aterrizaje(0.55), char) end
 		Pose.Update(dt)
 		return
 	end
@@ -1927,6 +1947,7 @@ local function bucle(dt)
 				Pose.Objetivo(Pose.Trepa((os.clock() / 0.34) % 1 < 0.5), char)
 			end
 			Camara.Update(dt, v, lat, false)
+			if agarrado and poseSpideyActiva and char and char.Parent then Pose.Objetivo(Pose.Aterrizaje(0.55), char) end
 			Pose.Update(dt)
 			return
 		end
@@ -1976,6 +1997,7 @@ local function bucle(dt)
 	end
 
 	Camara.Update(dt, v, lat, enSuelo)
+	if agarrado and poseSpideyActiva and char and char.Parent then Pose.Objetivo(Pose.Aterrizaje(0.55), char) end
 	Pose.Update(dt)
 
 	if v.Magnitude > 55 and not enSuelo and os.clock() - ultimoSonido > 0.55 then
@@ -2207,7 +2229,7 @@ local function crearGUI()
 	txt.Font = Enum.Font.GothamMedium
 	txt.TextColor3 = Color3.fromRGB(228, 238, 255)
 	txt.TextScaled = true
-	txt.Text = "EQUIPA SPIDER · CLIC IZQ = LANZAR TELARAÑA (A/B ALTERNA) · MANTÉN = BALANCEO · SHIFT+PARED = TREPAR · ESPACIO = SALTAR"
+	txt.Text = "SPIDER: CLIC IZQ = TELARAÑA (A/B) · MANTÉN = BALANCEO · SHIFT+PARED = TREPAR · ESPACIO = SALTAR · CTRL+G = AGARRAR · Z = DESMEMBRAR · J = ESP"
 	txt.Parent = panel
 
 	task.delay(10, function()
@@ -2319,7 +2341,7 @@ local function alNacer(c)
 	task.wait(1)
 	if player.Character == c then
 		crearGUI()
-		print("[Spidey V10] cliente listo | rig=" .. tostring(Pose.Tipo(char)) .. " | A/B procedurales")
+		print("[Spidey V11] cliente listo | rig=" .. tostring(Pose.Tipo(char)) .. " | A/B procedurales")
 	end
 end
 
@@ -2335,6 +2357,437 @@ if player.Character then
 end
 
 RunService.Heartbeat:Connect(bucle)
+-----------------------------------------------------------------
+-- V11 · AGARRE (Ctrl+G), DESMEMBRADO (Z) y ESP (J)
+-- Efectos LOCALES: en juegos ajenos (Da Hood) solo los ve el
+-- jugador que ejecuta el script. En tus juegos con servidor
+-- instalado se comporta igual, sin replicar a otros clientes.
+-----------------------------------------------------------------
+local V11 = {}
+local basuraCuerpo = {}       -- partes desmembradas que vuelan
+local espActivo = false
+local espDatos = {}           -- [player o "prueba"] = { hl, bb, modelo }
+local RANGO_AGARRE = 9
+local DIST_AGARRE = 3.6
+
+-- Aviso pequeno abajo en pantalla (no reemplaza el HUD del juego).
+local hudTexto = nil
+local function mostrarHUD(texto)
+	if not hudTexto then
+		local pg = player:FindFirstChild("PlayerGui")
+		if not pg then return end
+		local gui = pg:FindFirstChild("SpideyV11HUD")
+		if not gui then
+			gui = Instance.new("ScreenGui")
+			gui.Name = "SpideyV11HUD"
+			gui.ResetOnSpawn = false
+			gui.IgnoreGuiInset = true
+			gui.Parent = pg
+		end
+		hudTexto = gui:FindFirstChild("Texto")
+		if not hudTexto then
+			hudTexto = Instance.new("TextLabel")
+			hudTexto.Name = "Texto"
+			hudTexto.AnchorPoint = Vector2.new(0.5, 1)
+			hudTexto.Position = UDim2.new(0.5, 0, 1, -96)
+			hudTexto.Size = UDim2.new(0, 480, 0, 28)
+			hudTexto.BackgroundTransparency = 1
+			hudTexto.Font = Enum.Font.GothamBold
+			hudTexto.TextScaled = true
+			hudTexto.TextColor3 = Color3.new(1, 1, 1)
+			hudTexto.TextStrokeColor3 = Color3.new(0, 0, 0)
+			hudTexto.TextStrokeTransparency = 0
+			hudTexto.Visible = false
+			hudTexto.Parent = gui
+		end
+	end
+	hudTexto.Text = texto or ""
+	hudTexto.Visible = texto ~= nil
+end
+
+local function limpiarBasura()
+	for i = #basuraCuerpo, 1, -1 do
+		local m = basuraCuerpo[i]
+		if m and m.Parent then m:Destroy() end
+		basuraCuerpo[i] = nil
+	end
+end
+
+-- Sirve para vivos y tambien para cuerpos derribados/KO (Health 0),
+-- que en Da Hood son justo los que estan tirados en el piso.
+local function cuerpoValido(modelo)
+	if not modelo or modelo == char or not modelo.Parent then return false end
+	local h = modelo:FindFirstChildOfClass("Humanoid")
+	local r = modelo:FindFirstChild("HumanoidRootPart")
+	if not h or not r then return false end
+	return true
+end
+
+-- Busca el cuerpo mas cercano que este debajo (o casi a la altura)
+-- del jugador: sirve para cuerpos tirados/KO de Da Hood y NPCs.
+local function buscarCuerpo()
+	local mejor, mejorPuntaje = nil, math.huge
+	local p0 = (hrp and hrp.Position) or Vector3.zero
+	local vistos = {}
+	local function probar(modelo)
+		if not modelo or modelo == char or vistos[modelo] then return end
+		vistos[modelo] = true
+		if not cuerpoValido(modelo) then return end
+		local r = modelo:FindFirstChild("HumanoidRootPart")
+		local d = r.Position - p0
+		local horiz = Vector3.new(d.X, 0, d.Z).Magnitude
+		if horiz <= RANGO_AGARRE and d.Y <= 1.0 and d.Y >= -9 then
+			local puntaje = horiz + math.abs(d.Y + 2) * 0.35
+			if puntaje < mejorPuntaje then
+				mejor, mejorPuntaje = modelo, puntaje
+			end
+		end
+	end
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p ~= player then probar(p.Character) end
+	end
+	for _, m in ipairs(workspace:GetChildren()) do
+		if m:IsA("Model") and m:FindFirstChildOfClass("Humanoid") then
+			probar(m)
+		end
+	end
+	return mejor
+end
+
+local function soltarAgarre(motivo)
+	if not agarrado then return end
+	local a = agarrado
+	agarrado = nil
+	-- las partes que volaron desaparecen poco despues de soltar
+	if a.basura and #a.basura > 0 then
+		local lista = a.basura
+		a.basura = nil
+		task.delay(0.5, function()
+			for _, d in ipairs(lista) do
+				if d then
+					local i = table.find(basuraCuerpo, d)
+					if i then table.remove(basuraCuerpo, i) end
+					if d.Parent then d:Destroy() end
+				end
+			end
+		end)
+	end
+	print("[Spidey V11] agarre soltado (" .. tostring(motivo or "manual") .. ")")
+	mostrarHUD(nil)
+end
+
+function V11.Agarrar()
+	if not char or not hrp or not hum or hum.Health <= 0 then
+		print("[Spidey V11] no puedes agarrar sin personaje vivo")
+		return false
+	end
+	if agarrado then
+		soltarAgarre("g")
+		return true
+	end
+	local modelo = buscarCuerpo()
+	if not modelo then
+		print("[Spidey V11] no hay ningun cuerpo debajo/cerca (Ctrl+G)")
+		return false
+	end
+	agarrado = {
+		modelo = modelo,
+		jugador = Players:GetPlayerFromCharacter(modelo),
+		desmembrado = false,
+		basura = {},
+	}
+	print("[Spidey V11] agarrado de la pierna: " .. modelo.Name)
+	mostrarHUD("CARGANDO: " .. modelo.Name .. "   |   Z = desmembrar   |   G = soltar")
+	return true
+end
+
+function V11.Soltar(motivo)
+	soltarAgarre(motivo)
+end
+
+-- Cada frame: la victima flota delante del jugador, acostada
+-- (agarrada de la pierna). El agachado se aplica en bucle().
+local function actualizarAgarre()
+	local a = agarrado
+	if not a then return end
+	if not char or not char.Parent or not hrp or not hrp.Parent then
+		soltarAgarre("reinicio local")
+		return
+	end
+	if hum and hum.Health <= 0 then
+		soltarAgarre("moriste")
+		return
+	end
+	local m = a.modelo
+	if not m or not m.Parent or (a.jugador and a.jugador.Character ~= m) then
+		soltarAgarre("la victima respawneo")
+		return
+	end
+	if not m:FindFirstChildOfClass("Humanoid") then
+		soltarAgarre("la victima desaparecio")
+		return
+	end
+	local delante = hrp.CFrame * CFrame.new(0, 0.15, -DIST_AGARRE)
+	delante = delante * CFrame.Angles(math.rad(-84), 0, math.rad(6))
+	m:PivotTo(delante)
+end
+
+-----------------------------------------------------------------
+-- Desmembrado (Z): las partes salen volando poco a poco; a los
+-- 2 s se suelta el agarre y las partes desaparecen.
+-----------------------------------------------------------------
+local GRUPOS_CUERPO = {
+	{ "RightUpperArm", "RightLowerArm", "RightHand" },
+	{ "LeftUpperArm", "LeftLowerArm", "LeftHand" },
+	{ "RightUpperLeg", "RightLowerLeg", "RightFoot" },
+	{ "LeftUpperLeg", "LeftLowerLeg", "LeftFoot" },
+	{ "Right Arm" },
+	{ "Left Arm" },
+	{ "Right Leg" },
+	{ "Left Leg" },
+}
+
+local function parteEnGrupo(d, set)
+	if d:IsA("JointInstance") or d:IsA("WeldConstraint") then
+		return set[d.Part0] or set[d.Part1]
+	elseif d:IsA("AnimationConstraint") then
+		local a0, a1 = d.Attachment0, d.Attachment1
+		return (a0 and set[a0.Parent]) or (a1 and set[a1.Parent])
+	end
+	return false
+end
+
+local function lanzarGrupo(partes, centro)
+	local suma = Vector3.zero
+	for _, p in ipairs(partes) do suma = suma + p.Position end
+	local centroGrupo = suma / #partes
+	local dir = Vector3.new(centroGrupo.X - centro.X, 0, centroGrupo.Z - centro.Z)
+	if dir.Magnitude < 0.05 then
+		dir = Vector3.new(math.random() - 0.5, 0, math.random() - 0.5)
+	end
+	dir = dir.Unit
+	local destino = CFrame.new(centroGrupo + dir * (2.2 + math.random() * 1.4) + Vector3.new(0, 1.3 + math.random() * 0.9, 0))
+		* CFrame.Angles(math.rad((math.random() - 0.5) * 60), math.rad((math.random() - 0.5) * 90), math.rad((math.random() - 0.5) * 60))
+	local base = CFrame.new(centroGrupo)
+	for _, p in ipairs(partes) do
+		local offset = base:ToObjectSpace(p.CFrame)
+		local objetivo = destino * offset
+		TweenService:Create(p, TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { CFrame = objetivo }):Play()
+	end
+end
+
+local function desmembrar()
+	if not agarrado or agarrado.desmembrado then return end
+	local a = agarrado
+	local m = a.modelo
+	a.desmembrado = true
+	local centro = m:GetPivot().Position
+	print("[Spidey V11] desmembrando poco a poco: " .. m.Name)
+	mostrarHUD("DESMEMBRANDO: " .. m.Name)
+
+	for i, nombres in ipairs(GRUPOS_CUERPO) do
+		task.delay((i - 1) * 0.16, function()
+			if agarrado ~= a or not m.Parent then return end
+			local partes, set = {}, {}
+			for _, n in ipairs(nombres) do
+				local p = m:FindFirstChild(n)
+				if p and p:IsA("BasePart") then
+					partes[#partes + 1] = p
+					set[p] = true
+				end
+			end
+			if #partes == 0 then return end
+			-- cortar las uniones que atan el grupo al resto del cuerpo
+			for _, d in ipairs(m:GetDescendants()) do
+				if parteEnGrupo(d, set) then d:Destroy() end
+			end
+			-- las uniones internas del grupo ya no hacen falta
+			for _, p in ipairs(partes) do
+				for _, d in ipairs(p:GetChildren()) do
+					if d:IsA("JointInstance") or d:IsA("WeldConstraint") or d:IsA("AnimationConstraint") then
+						d:Destroy()
+					end
+				end
+			end
+			local debris = Instance.new("Model")
+			debris.Name = "SpideyDebris"
+			for _, p in ipairs(partes) do
+				p.Anchored = true
+				p.CanCollide = false
+				p.CanQuery = false
+				p.Parent = debris
+			end
+			debris.Parent = workspace
+			basuraCuerpo[#basuraCuerpo + 1] = debris
+			table.insert(a.basura, debris)
+			lanzarGrupo(partes, centro)
+		end)
+	end
+
+	-- a los 2 s se suelta el agarre (como pulsar G)
+	task.delay(2, function()
+		if agarrado == a then
+			soltarAgarre("auto 2s")
+		end
+	end)
+end
+V11.Desmembrar = desmembrar
+
+-----------------------------------------------------------------
+-- ESP (J): contorno blanco + nombre del usuario encima.
+-- Highlight con AlwaysOnTop = se ve a traves de las paredes.
+-----------------------------------------------------------------
+local function quitarESP()
+	for _, datos in pairs(espDatos) do
+		if datos.hl then datos.hl:Destroy() end
+		if datos.bb then datos.bb:Destroy() end
+	end
+	table.clear(espDatos)
+end
+
+local function crearESPVisual(modelo, nombre)
+	if not modelo or not modelo.Parent then return nil end
+	local hl = Instance.new("Highlight")
+	hl.Name = "SpideyESP"
+	hl.FillTransparency = 1
+	hl.OutlineColor = Color3.new(1, 1, 1)
+	hl.OutlineTransparency = 0
+	hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	hl.Adornee = modelo
+	hl.Parent = modelo
+
+	local ancla = modelo:FindFirstChild("Head") or modelo:FindFirstChild("HumanoidRootPart") or modelo:FindFirstChildOfClass("BasePart")
+	if not ancla then
+		hl:Destroy()
+		return nil
+	end
+	local bb = Instance.new("BillboardGui")
+	bb.Name = "SpideyESP_Nombre"
+	bb.Size = UDim2.fromOffset(220, 34)
+	bb.StudsOffset = Vector3.new(0, 3.0, 0)
+	bb.AlwaysOnTop = true
+	bb.LightInfluence = 0
+	bb.MaxDistance = 5000
+	local txt = Instance.new("TextLabel")
+	txt.BackgroundTransparency = 1
+	txt.Size = UDim2.fromScale(1, 1)
+	txt.Font = Enum.Font.GothamBold
+	txt.TextScaled = true
+	txt.TextColor3 = Color3.new(1, 1, 1)
+	txt.TextStrokeColor3 = Color3.new(0, 0, 0)
+	txt.TextStrokeTransparency = 0
+	txt.Text = nombre
+	txt.Parent = bb
+	bb.Adornee = ancla
+	bb.Parent = ancla
+	return { hl = hl, bb = bb, modelo = modelo }
+end
+
+local function aplicarESPPJugador(p)
+	if not espActivo or p == player then return end
+	local c = p.Character
+	if not c then return end
+	local datos = espDatos[p]
+	if datos and datos.modelo == c and datos.hl and datos.hl.Parent then return end
+	if datos then
+		if datos.hl then datos.hl:Destroy() end
+		if datos.bb then datos.bb:Destroy() end
+		espDatos[p] = nil
+	end
+	local creado = crearESPVisual(c, p.Name)
+	if creado then espDatos[p] = creado end
+end
+
+function V11.AlternarESP()
+	espActivo = not espActivo
+	quitarESP()
+	if espActivo then
+		for _, p in ipairs(Players:GetPlayers()) do
+			aplicarESPPJugador(p)
+		end
+		print("[Spidey V11] ESP ACTIVADO: contorno blanco + nombres (atraviesa paredes)")
+		mostrarHUD("ESP ACTIVADO (J para apagar)")
+	else
+		print("[Spidey V11] ESP DESACTIVADO")
+		mostrarHUD("ESP DESACTIVADO")
+	end
+	task.delay(2, function()
+		if not agarrado then mostrarHUD(nil) end
+	end)
+	return espActivo
+end
+
+-- Solo para pruebas: aplica el ESP a tu propio personaje.
+function V11.ESPPrueba()
+	local datos = espDatos["prueba"]
+	if datos then
+		if datos.hl then datos.hl:Destroy() end
+		if datos.bb then datos.bb:Destroy() end
+		espDatos["prueba"] = nil
+		return false
+	end
+	if char then
+		local creado = crearESPVisual(char, player.Name .. " (test)")
+		if creado then espDatos["prueba"] = creado end
+	end
+	return true
+end
+
+local function conectarESPJugador(p)
+	if p == player then return end
+	p.CharacterAdded:Connect(function()
+		if not espActivo then return end
+		task.wait(0.4)
+		aplicarESPPJugador(p)
+	end)
+	if espActivo then
+		aplicarESPPJugador(p)
+	end
+end
+for _, p in ipairs(Players:GetPlayers()) do
+	conectarESPJugador(p)
+end
+Players.PlayerAdded:Connect(conectarESPJugador)
+Players.PlayerRemoving:Connect(function(p)
+	local datos = espDatos[p]
+	if datos then
+		if datos.hl then datos.hl:Destroy() end
+		if datos.bb then datos.bb:Destroy() end
+		espDatos[p] = nil
+	end
+end)
+
+-----------------------------------------------------------------
+-- Teclas: Ctrl+G agarrar / G soltar · Z desmembrar · J ESP
+-----------------------------------------------------------------
+UIS.InputBegan:Connect(function(input, gpe)
+	if gpe or UIS:GetFocusedTextBox() then return end
+	local kc = input.KeyCode
+	if kc == Enum.KeyCode.J then
+		V11.AlternarESP()
+	elseif kc == Enum.KeyCode.G then
+		if agarrado then
+			soltarAgarre("g")
+		else
+			local ctrl = UIS:IsKeyDown(Enum.KeyCode.LeftControl) or UIS:IsKeyDown(Enum.KeyCode.RightControl)
+			if ctrl then V11.Agarrar() end
+		end
+	elseif kc == Enum.KeyCode.Z then
+		if agarrado then V11.Desmembrar() end
+	end
+end)
+
+-- RenderStepped: los demas jugadores se actualizan por red; hay que
+-- escribir su posicion justo antes de dibujar el frame para que se
+-- vean agarrados y no saltando a su posicion real.
+RunService.RenderStepped:Connect(actualizarAgarre)
+
+player.CharacterRemoving:Connect(function()
+	agarrado = nil
+	limpiarBasura()
+	mostrarHUD(nil)
+end)
+
 
 -----------------------------------------------------------------
 -- DEPURACIÓN
@@ -2374,6 +2827,8 @@ function _G.SpideyInfo()
 		"web=" .. tostring(webActiva),
 		"tool=" .. tostring(spiderTool and spiderTool.Parent and spiderTool.Parent.Name),
 		"ancla=" .. tostring(anclaPos),
+		"esp=" .. tostring(espActivo),
+		"agarrado=" .. tostring(agarrado and agarrado.modelo and agarrado.modelo.Name),
 	}
 	for modelo, s in pairs(secuencias) do
 		local transcurrido = s.pausa and s.tFijo or (workspace:GetServerTimeNow() - s.inicio)
@@ -2383,7 +2838,7 @@ function _G.SpideyInfo()
 end
 
 -- GANCHO DE PRUEBAS (dev): LocalPlayer:SetAttribute("SpideyTest", ...)
--- Valores: "A", "B", "A:0.5" (pausa en t), "STOP", "INFO", "EQUIP", "CLICK", "RELEASE", "SIMULARA", "SIMULARB"
+-- Valores: "A", "B", "A:0.5" (pausa en t), "STOP", "INFO", "EQUIP", "CLICK", "RELEASE", "GRAB", "Z", "ESP", "ESPTEST", "SIMULARA", "SIMULARB"
 local ultimoCmd
 player:GetAttributeChangedSignal("SpideyTest"):Connect(function()
 	local v = player:GetAttribute("SpideyTest")
@@ -2393,6 +2848,15 @@ player:GetAttributeChangedSignal("SpideyTest"):Connect(function()
 	if c == "STOP" then
 		_G.SpideySoltar()
 		print("[SpideyTest] STOP")
+	elseif c == "GRAB" then
+		print("[SpideyTest] GRAB", V11.Agarrar())
+	elseif c == "Z" then
+		V11.Desmembrar()
+		print("[SpideyTest] Z")
+	elseif c == "ESP" then
+		print("[SpideyTest] ESP", V11.AlternarESP())
+	elseif c == "ESPTEST" then
+		print("[SpideyTest] ESPTEST", V11.ESPPrueba())
 	elseif c == "INFO" then
 		print("[SpideyTest]", _G.SpideyInfo())
 	elseif c == "EQUIP" then
