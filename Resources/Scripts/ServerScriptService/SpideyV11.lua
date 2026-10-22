@@ -1,15 +1,18 @@
 --[[
-	SPIDER V11.8 · TODO EL SISTEMA EN UN SOLO SCRIPT COMBINADO
+	SPIDER V11.9 · TODO EL SISTEMA EN UN SOLO SCRIPT COMBINADO
 	Servidor + Cliente en el mismo archivo. Se adapta solo.
 
-	LO NUEVO DE V11.8 (agarre de la pierna de verdad):
-	  Ctrl+G agarra al cuerpo/persona mas cercana de la pierna y lo
-	  levanta DELANTE de ti: flota horizontal a la altura del pecho,
-	  separado (~5.5 studs) y con una leve oscilacion, para que no
-	  quede pegado a tu lado. Al agarrarlo se le quita la pierna
-	  agarrada (se oculta la derecha; si no existe, la izquierda).
-	  En tu juego lo ven todos; en Da Hood es local. G lo suelta y
-	  el cuerpo vuelve a la normalidad.
+	LO NUEVO DE V11.9 (le arranca la pierna de verdad):
+	  Ctrl+G agarra de la pierna y levanta al cuerpo DELANTE de ti:
+	  flota horizontal a la altura del pecho, separado (~5.5 studs)
+	  y con una leve oscilacion. Al agarrarlo le ARRANCA la pierna
+	  agarrada: se rompen las uniones de la cadera (Motor6D/Weld
+	  clasicos o AnimationConstraint/BallSocketConstraint del rig
+	  AC), la pierna se separa, cae al vacio y se destruye. El
+	  cuerpo queda sin ella y puede seguir caminando. Al respawnear
+	  vuelve completa. En tu juego lo ven todos; en Da Hood el clon
+	  se arranca y el cuerpo real se queda con la pierna oculta
+	  (solo para ti) para que se vea sin ella.
 
 	LO NUEVO DE V11.7 (sigue igual):
 	  ARMAS NUEVAS (REVOLVER Y ESCOPETAS): el juego las dispara en
@@ -38,24 +41,29 @@
 	  Ctrl+G  agarra de la pierna al cuerpo/persona mas cercana que
 	          este debajo de ti: lo levanta DELANTE de ti, flotando
 	          horizontal a la altura del pecho (~5.5 studs, con una
-	          leve oscilacion) y SIN la pierna agarrada. G lo suelta.
+	          leve oscilacion) y le ARRANCA la pierna agarrada (la
+	          derecha; si no existe, la izquierda). La pierna se
+	          separa, cae al vacio y desaparece; el cuerpo queda sin
+	          ella y puede caminar. G lo suelta.
 	  J       ESP: contorno blanco + nombre de usuario encima de TODOS
 	          los jugadores, visible a traves de las paredes. El texto
 	          es un poco mas pequeno que en V11. J otra vez lo apaga.
-	  Z       ELIMINADO: no se separan brazos/piernas al azar; al
-	          agarrar solo se quita la pierna agarrada (visual).
+	  Z       ELIMINADO: no se separan brazos/piernas al azar. La
+	          pierna se arranca SOLO al agarrar con Ctrl+G.
 
 	DOS MODOS (importante):
 	  * EN TU JUEGO (con servidor): el agarre se replica de verdad:
-	    el servidor mueve a la victima y todos lo ven. El LOCK apunta
-	    por RE_Lock (servidor propio), solo siendo dueño.
+	    el servidor mueve a la victima, le arranca la pierna (todos
+	    la ven caer) y el cuerpo queda sin ella hasta que respawnee.
+	    El LOCK apunta por RE_Lock (servidor propio), solo dueño.
 	  * EN DA HOOD / JUEGOS AJENOS (executor): el agarre es LOCAL
-	    (oculta el cuerpo real y muestra un clon delante de ti,
-	    flotando a la altura del pecho y sin la pierna agarrada;
-	    solo lo ves tu). El lock muestra contorno + linea Y ADEMAS
-	    apunta las balas (via el remoto del propio juego) cuando el
-	    juego usa el sistema de armas de Da Hood. Si un juego no lo
-	    usa, el lock ahi queda solo visual.
+	    (oculta el cuerpo real y muestra un clon delante de ti, a la
+	    altura del pecho y con la pierna arrancada; solo lo ves tu).
+	    Al soltar, el cuerpo real se queda con la pierna oculta (solo
+	    para ti) y puede caminar normal. El lock muestra contorno +
+	    linea Y ADEMAS apunta las balas (via el remoto del propio
+	    juego) cuando el juego usa el sistema de armas de Da Hood.
+	    Si un juego no lo usa, el lock ahi queda solo visual.
 
 	INSTALACION PARA REPLICAR (tu juego):
 	  1) ServerScriptService > Insert Object > "Script" (NO LocalScript)
@@ -556,12 +564,13 @@ Players.PlayerAdded:Connect(function(player)
 end)
 
 -----------------------------------------------------------------
--- V11.8 · CUERPO: agarre REPLICADO POR EL SERVIDOR
+-- V11.9 · CUERPO: agarre REPLICADO POR EL SERVIDOR
 -- Todo lo que pasa aqui lo ven TODOS los clientes y la victima lo
 -- siente en su propio personaje. Es la unica forma real: un cliente
 -- no puede modificar el cuerpo de otra persona en el servidor.
--- En V11.8 el cuerpo flota al frente, a la altura del pecho, y se le
--- oculta la pierna agarrada (se restaura al soltar).
+-- En V11.9 el cuerpo flota al frente, a la altura del pecho, y se le
+-- ARRANCA la pierna agarrada: las uniones de la cadera se destruyen,
+-- la pierna cae al vacio y el cuerpo sigue caminando sin ella.
 -----------------------------------------------------------------
 local RADIO_CARGA = 10
 local DIST_CARGA = 5.5
@@ -605,8 +614,11 @@ local function buscarVictima(grabador)
 	return mejor
 end
 
--- Pierna agarrada: se oculta la derecha (o la izquierda si no hay).
--- En el servidor se oculta para TODOS y se restaura al soltar.
+-- Pierna agarrada: se ARRANCA la derecha (o la izquierda si no hay).
+-- Se destruyen las uniones de la cadera (Motor6D/Weld clasicos o las
+-- nuevas AnimationConstraint/BallSocketConstraint del rig AC), se
+-- desancla la pierna y se lanza al vacio; a los 3 s se destruye. El
+-- cuerpo queda sin ella y puede seguir caminando. Al respawnear vuelve.
 local NOMBRES_PIERNA_DERECHA = { "RightUpperLeg", "RightLowerLeg", "RightFoot", "Right Leg" }
 local NOMBRES_PIERNA_IZQUIERDA = { "LeftUpperLeg", "LeftLowerLeg", "LeftFoot", "Left Leg" }
 
@@ -624,35 +636,65 @@ local function partesPierna(modelo)
 	return lista, "izquierda"
 end
 
-local function ocultarPierna(modelo)
-	local datos = {}
+local function arrancarPierna(modelo)
 	local partes, lado = partesPierna(modelo)
+	if #partes == 0 then return nil end
+	local set = {}
+	for _, p in ipairs(partes) do set[p] = true end
+	local uniones = {}
+	for _, d in ipairs(modelo:GetDescendants()) do
+		local esUnion = d:IsA("Motor6D") or d:IsA("Weld") or d:IsA("WeldConstraint")
+			or d:IsA("AnimationConstraint") or d:IsA("BallSocketConstraint")
+			or d:IsA("HingeConstraint") or d:IsA("SocketConstraint")
+		if esUnion then
+			local dentro, fora = false, false
+			local p0, p1 = nil, nil
+			if d:IsA("JointInstance") or d:IsA("WeldConstraint") then
+				p0, p1 = d.Part0, d.Part1
+			end
+			if p0 or p1 then
+				if p0 then if set[p0] then dentro = true else fora = true end end
+				if p1 then if set[p1] then dentro = true else fora = true end end
+			else
+				local ok, a0, a1 = pcall(function() return d.Attachment0, d.Attachment1 end)
+				if ok then
+					if a0 and a0.Parent then if set[a0.Parent] then dentro = true else fora = true end end
+					if a1 and a1.Parent then if set[a1.Parent] then dentro = true else fora = true end end
+				end
+			end
+			if dentro and fora then table.insert(uniones, d) end
+		end
+	end
+	if #uniones == 0 then
+		-- Respaldo para rigs donde la cadera no expone los attachments.
+		for _, d in ipairs(modelo:GetDescendants()) do
+			if d:IsA("Motor6D") or d:IsA("Weld") or d:IsA("AnimationConstraint") or d:IsA("BallSocketConstraint") then
+				local n = string.lower(d.Name)
+				if string.find(n, "righthip") or string.find(n, "right hip") then
+					table.insert(uniones, d)
+				end
+			end
+		end
+	end
+	for _, u in ipairs(uniones) do
+		u:Destroy()
+	end
 	for _, p in ipairs(partes) do
-		datos[p] = { p.Transparency, p.LocalTransparencyModifier }
-		p.Transparency = 1
-		p.LocalTransparencyModifier = 1
-		for _, d in ipairs(p:GetChildren()) do
-			if d:IsA("Decal") or d:IsA("Texture") then
-				datos[d] = { d.Transparency }
-				d.Transparency = 1
-			end
-		end
+		p.Anchored = false
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
 	end
-	return datos, lado
-end
-
-local function restaurarPierna(datos)
-	if not datos then return end
-	for obj, vals in pairs(datos) do
-		if obj and obj.Parent then
-			if obj:IsA("BasePart") then
-				obj.Transparency = vals[1]
-				obj.LocalTransparencyModifier = vals[2]
-			elseif obj:IsA("Decal") or obj:IsA("Texture") then
-				obj.Transparency = vals[1]
-			end
-		end
+	local raiz = partes[1]
+	if raiz then
+		raiz.AssemblyLinearVelocity = raiz.AssemblyLinearVelocity + Vector3.new(0, -100, 0) + raiz.CFrame.LookVector * 10
 	end
+	task.delay(3, function()
+		for _, p in ipairs(partes) do
+			if p and p.Parent then p:Destroy() end
+		end
+	end)
+	return lado
 end
 
 -- Pose de la carga: horizontal, a la altura del pecho, 5.5 studs al
@@ -669,7 +711,6 @@ local function poseCarga(raiz, t)
 end
 
 local function restaurarCarga(e)
-	restaurarPierna(e.pierna)
 	local h = e.humanoide
 	local r = e.raiz
 	if r and r.Parent then
@@ -699,7 +740,7 @@ local function soltar(grabador, motivo)
 	if grabador and grabador.Parent then
 		RE_Cuerpo:FireClient(grabador, "RELEASE")
 	end
-	print("[Spidey V11.8] agarre soltado para todos (" .. tostring(motivo or "manual") .. ")")
+	print("[Spidey V11.9] agarre soltado para todos (" .. tostring(motivo or "manual") .. ")")
 end
 
 local function iniciarCarga(grabador, modelo)
@@ -718,7 +759,7 @@ local function iniciarCarga(grabador, modelo)
 		salto = h.JumpPower,
 		usaSalto = h.UseJumpPower,
 	}
-	e.pierna, e.piernaLado = ocultarPierna(modelo)
+	e.piernaLado = arrancarPierna(modelo)
 	r.Anchored = true
 	h.PlatformStand = true
 	h.AutoRotate = false
@@ -730,7 +771,7 @@ local function iniciarCarga(grabador, modelo)
 	modelo:SetAttribute("SpideyCargadoPor", grabador.Name)
 	grabador:SetAttribute("SpideyAgarrando", modelo.Name)
 	RE_Cuerpo:FireClient(grabador, "OK", modelo)
-	print("[Spidey V11.8] agarrado para todos: " .. modelo.Name .. " (por " .. grabador.Name .. ", sin pierna " .. tostring(e.piernaLado) .. ")")
+	print("[Spidey V11.9] agarrado para todos: " .. modelo.Name .. " (por " .. grabador.Name .. ", pierna " .. tostring(e.piernaLado) .. " arrancada)")
 end
 
 RE_Cuerpo.OnServerEvent:Connect(function(jugador, accion)
@@ -813,7 +854,7 @@ _G.SpideyV11Servidor = {
 	end,
 }
 
-print("[Spidey V11.8] cuerpo listo: agarre replicado por RE_Cuerpo; pierna agarrada oculta y cuerpo flotando al frente")
+print("[Spidey V11.9] cuerpo listo: agarre replicado por RE_Cuerpo; pierna arrancada y cuerpo flotando al frente")
 
 print("[Spidey V11] Servidor listo; valida telaranas y difunde animaciones por RE_Anim")
 
@@ -3022,9 +3063,11 @@ local function restaurarModeloReal(modelo, datos)
 	end
 end
 
--- Pierna agarrada: se oculta la derecha (o la izquierda si no hay).
--- En el clon local se oculta para que se vea arrancada; al soltar el
--- clon se destruye y el cuerpo real vuelve completo.
+-- Pierna agarrada: se ARRANCA la derecha (o la izquierda si no hay).
+-- En el clon local se arranca para que se vea separada y caiga; al
+-- soltar el clon se destruye. En el cuerpo real (que no se puede tocar
+-- desde un juego ajeno) se oculta la pierna al soltar para que se vea
+-- sin ella, aunque el cuerpo siga caminando normal.
 local NOMBRES_PIERNA_DERECHA = { "RightUpperLeg", "RightLowerLeg", "RightFoot", "Right Leg" }
 local NOMBRES_PIERNA_IZQUIERDA = { "LeftUpperLeg", "LeftLowerLeg", "LeftFoot", "Left Leg" }
 
@@ -3057,6 +3100,66 @@ local function ocultarPierna(modelo)
 		end
 	end
 	return datos, lado
+end
+
+local function arrancarPierna(modelo)
+	local partes, lado = partesPierna(modelo)
+	if #partes == 0 then return nil end
+	local set = {}
+	for _, p in ipairs(partes) do set[p] = true end
+	local uniones = {}
+	for _, d in ipairs(modelo:GetDescendants()) do
+		local esUnion = d:IsA("Motor6D") or d:IsA("Weld") or d:IsA("WeldConstraint")
+			or d:IsA("AnimationConstraint") or d:IsA("BallSocketConstraint")
+			or d:IsA("HingeConstraint") or d:IsA("SocketConstraint")
+		if esUnion then
+			local dentro, fora = false, false
+			local p0, p1 = nil, nil
+			if d:IsA("JointInstance") or d:IsA("WeldConstraint") then
+				p0, p1 = d.Part0, d.Part1
+			end
+			if p0 or p1 then
+				if p0 then if set[p0] then dentro = true else fora = true end end
+				if p1 then if set[p1] then dentro = true else fora = true end end
+			else
+				local ok, a0, a1 = pcall(function() return d.Attachment0, d.Attachment1 end)
+				if ok then
+					if a0 and a0.Parent then if set[a0.Parent] then dentro = true else fora = true end end
+					if a1 and a1.Parent then if set[a1.Parent] then dentro = true else fora = true end end
+				end
+			end
+			if dentro and fora then table.insert(uniones, d) end
+		end
+	end
+	if #uniones == 0 then
+		for _, d in ipairs(modelo:GetDescendants()) do
+			if d:IsA("Motor6D") or d:IsA("Weld") or d:IsA("AnimationConstraint") or d:IsA("BallSocketConstraint") then
+				local n = string.lower(d.Name)
+				if string.find(n, "righthip") or string.find(n, "right hip") then
+					table.insert(uniones, d)
+				end
+			end
+		end
+	end
+	for _, u in ipairs(uniones) do
+		u:Destroy()
+	end
+	for _, p in ipairs(partes) do
+		p.Anchored = false
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+	end
+	local raiz = partes[1]
+	if raiz then
+		raiz.AssemblyLinearVelocity = raiz.AssemblyLinearVelocity + Vector3.new(0, -100, 0) + raiz.CFrame.LookVector * 10
+	end
+	task.delay(3, function()
+		for _, p in ipairs(partes) do
+			if p and p.Parent then p:Destroy() end
+		end
+	end)
+	return lado
 end
 
 -- Pose de la carga: horizontal, a la altura del pecho, 5.5 studs al
@@ -3107,7 +3210,7 @@ local function crearClon(modelo, destino)
 			d.Enabled = false
 		end
 	end
-	ocultarPierna(clon)
+	arrancarPierna(clon)
 	if destino then clon:PivotTo(destino) end
 	return clon
 end
@@ -3202,10 +3305,10 @@ function V11.AlternarESP()
 		for _, p in ipairs(Players:GetPlayers()) do
 			aplicarESPPJugador(p)
 		end
-		print("[Spidey V11.8] ESP ACTIVADO: contorno blanco + nombres (atraviesa paredes)")
+		print("[Spidey V11.9] ESP ACTIVADO: contorno blanco + nombres (atraviesa paredes)")
 		mostrarHUD("ESP ACTIVADO (J para apagar)")
 	else
-		print("[Spidey V11.8] ESP DESACTIVADO")
+		print("[Spidey V11.9] ESP DESACTIVADO")
 		mostrarHUD("ESP DESACTIVADO")
 	end
 	task.delay(2, function()
@@ -3433,7 +3536,7 @@ local function parchearGunHandler()
 	end
 	gunHandlerParcheado = true
 	gunHandlerParcheando = false
-	print("[Spidey V11.8] armas nuevas (Revolver/escopetas): getAim dirigido al lock")
+	print("[Spidey V11.9] armas nuevas (Revolver/escopetas): getAim dirigido al lock")
 	return true
 end
 -- El require de un modulo del juego puede CEDER (esperando el
@@ -3581,7 +3684,7 @@ local function bloquearModeloLock(modelo)
 	elseif b.enviarApuntado then
 		modo = "apuntado remoto"
 	end
-	print("[Spidey V11.8] lock: " .. nombre .. " (" .. modo .. ")")
+	print("[Spidey V11.9] lock: " .. nombre .. " (" .. modo .. ")")
 	return true
 end
 
@@ -3694,11 +3797,17 @@ local function soltarAgarre(motivo)
 	agarrado = nil
 	if a.clon and a.clon.Parent then a.clon:Destroy() end
 	restaurarModeloReal(a.modelo, a.oculto)
+	-- La pierna agarrada no vuelve: en el cuerpo real se queda oculta
+	-- (en un juego ajeno no se puede tocar el servidor). El cuerpo
+	-- conserva la pierna unida, asi que puede caminar normal.
+	if a.modelo and a.modelo.Parent then
+		ocultarPierna(a.modelo)
+	end
 	if a.jugador and a.espOculto then restaurarESPDe(a.jugador, a.espOculto) end
 	-- Si el ESP estaba encendido, se le vuelve a poner al cuerpo real
 	-- (al agarrarlo se lo habia quitado para no delatar el cuerpo oculto).
 	if a.jugador and espActivo then aplicarESPPJugador(a.jugador) end
-	print("[Spidey V11.8] agarre soltado (" .. tostring(motivo or "manual") .. ")")
+	print("[Spidey V11.9] agarre soltado (" .. tostring(motivo or "manual") .. ")")
 	mostrarHUD(nil)
 end
 
@@ -3743,7 +3852,7 @@ function V11.Agarrar()
 		return true
 	end
 	if not char or not hrp or not hum or hum.Health <= 0 then
-		print("[Spidey V11.8] no puedes agarrar sin personaje vivo")
+		print("[Spidey V11.9] no puedes agarrar sin personaje vivo")
 		return false
 	end
 	if agarrado then
@@ -3752,7 +3861,7 @@ function V11.Agarrar()
 	end
 	local modelo = buscarCuerpo()
 	if not modelo then
-		print("[Spidey V11.8] no hay ningun cuerpo debajo/cerca (Ctrl+G)")
+		print("[Spidey V11.9] no hay ningun cuerpo debajo/cerca (Ctrl+G)")
 		return false
 	end
 
@@ -3760,7 +3869,7 @@ function V11.Agarrar()
 	-- El clon se crea ANTES de ocultar el real (si no, saldria invisible).
 	local clon = crearClon(modelo, delante)
 	if not clon then
-		print("[Spidey V11.8] no se pudo clonar la victima")
+		print("[Spidey V11.9] no se pudo clonar la victima")
 		return false
 	end
 	local oculto = ocultarModeloReal(modelo)
@@ -3777,7 +3886,7 @@ function V11.Agarrar()
 	clon.Parent = workspace
 	agarrado = a
 	local _, ladoPierna = partesPierna(modelo)
-	print("[Spidey V11.8] agarrado de la pierna " .. tostring(ladoPierna) .. " (local): " .. modelo.Name .. " | flotando al frente")
+	print("[Spidey V11.9] agarrado de la pierna " .. tostring(ladoPierna) .. " (local): " .. modelo.Name .. " | pierna arrancada")
 	mostrarHUD("CARGANDO: " .. modelo.Name .. "   |   G = soltar")
 	return true
 end
