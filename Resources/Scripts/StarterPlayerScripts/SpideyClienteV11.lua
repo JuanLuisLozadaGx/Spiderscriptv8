@@ -1,8 +1,8 @@
 --[[
-	SPIDER V11.5 · TODO EL SISTEMA EN UN SOLO SCRIPT COMBINADO
+	SPIDER V11.6 · TODO EL SISTEMA EN UN SOLO SCRIPT COMBINADO
 	Servidor + Cliente en el mismo archivo. Se adapta solo.
 
-	LO NUEVO DE V11.5 (las balas ya llegan en Da Hood):
+	LO NUEVO DE V11.6 (las balas ya llegan en Da Hood):
 	  APUNTADO EN DA HOOD Y JUEGOS CON SUS ARMAS: Da Hood deja
 	          que tu cliente le diga donde apuntas (manda
 	          MainRemoteEvent "DEAHOODMOUSEPOSx3^3" con la posicion
@@ -118,7 +118,7 @@ local RE_Cuerpo = remoto("RE_Cuerpo")
 local RE_Lock = remoto("RE_Lock")
 
 -----------------------------------------------------------------
--- V11.5 · LOCK (Q) DEL DUEÑO
+-- V11.6 · LOCK (Q) DEL DUEÑO
 -- El cliente manda el modelo objetivo. El servidor sobreescribe
 -- BodyEffects.MousePos: las armas de Da Hood disparan a ese punto,
 -- aunque el dueño apunte al piso. Solo lo puede usar el dueño del
@@ -144,12 +144,33 @@ local function esPropietarioLock(pl)
 	return false
 end
 
-local function puntoDeModeloLock(modelo)
+-- Con escopeta se apunta al TORSO: la dispersion del juego reparte los
+-- perdigones y un objetivo grande hace que casi todos impacten.
+-- Con las demas armas se apunta a la CABEZA.
+local function esArmaEscopeta(pl)
+	local c = pl and pl.Character
+	local t = c and c:FindFirstChildOfClass("Tool")
+	if not t then return false end
+	local n = string.lower(t.Name)
+	return string.find(n, "shotgun", 1, true) ~= nil
+		or string.find(n, "double-barrel", 1, true) ~= nil
+		or string.find(n, "escopeta", 1, true) ~= nil
+end
+
+local function puntoDeModeloLock(pl, modelo)
 	if not modelo or not modelo.Parent then return nil end
-	local p = modelo:FindFirstChild("Head")
-		or modelo:FindFirstChild("UpperTorso")
-		or modelo:FindFirstChild("Torso")
-		or modelo:FindFirstChild("HumanoidRootPart")
+	local p
+	if esArmaEscopeta(pl) then
+		p = modelo:FindFirstChild("UpperTorso")
+			or modelo:FindFirstChild("Torso")
+			or modelo:FindFirstChild("HumanoidRootPart")
+			or modelo:FindFirstChild("Head")
+	else
+		p = modelo:FindFirstChild("Head")
+			or modelo:FindFirstChild("UpperTorso")
+			or modelo:FindFirstChild("Torso")
+			or modelo:FindFirstChild("HumanoidRootPart")
+	end
 	return p and p.Position or nil
 end
 
@@ -174,7 +195,7 @@ end
 
 local function aplicarBloqueo(pl, b)
 	if bloqueos[pl] ~= b then return end
-	local pos = puntoDeModeloLock(b.modelo)
+	local pos = puntoDeModeloLock(pl, b.modelo)
 	if not pos then
 		limpiarBloqueo(pl, true)
 		return
@@ -223,7 +244,7 @@ local function colocarBloqueo(pl, modelo)
 		b.mp = mp
 		table.insert(b.conexiones, mp:GetPropertyChangedSignal("Value"):Connect(function()
 			if bloqueos[pl] == b then
-				local pos = puntoDeModeloLock(b.modelo)
+				local pos = puntoDeModeloLock(pl, b.modelo)
 				if pos and (mp.Value - pos).Magnitude > 0.01 then
 					mp.Value = pos
 				end
@@ -518,11 +539,11 @@ Players.PlayerAdded:Connect(function(player)
 end)
 
 -----------------------------------------------------------------
--- V11.5 · CUERPO: agarre REPLICADO POR EL SERVIDOR
+-- V11.6 · CUERPO: agarre REPLICADO POR EL SERVIDOR
 -- Todo lo que pasa aqui lo ven TODOS los clientes y la victima lo
 -- siente en su propio personaje. Es la unica forma real: un cliente
 -- no puede modificar el cuerpo de otra persona en el servidor.
--- (El desmembrado se elimino en V11.5 por pedido del dueño.)
+-- (El desmembrado se elimino en V11.6 por pedido del dueño.)
 -----------------------------------------------------------------
 local RADIO_CARGA = 10
 local DIST_CARGA = 3.6
@@ -596,7 +617,7 @@ local function soltar(grabador, motivo)
 	if grabador and grabador.Parent then
 		RE_Cuerpo:FireClient(grabador, "RELEASE")
 	end
-	print("[Spidey V11.5] agarre soltado para todos (" .. tostring(motivo or "manual") .. ")")
+	print("[Spidey V11.6] agarre soltado para todos (" .. tostring(motivo or "manual") .. ")")
 end
 
 local function iniciarCarga(grabador, modelo)
@@ -626,7 +647,7 @@ local function iniciarCarga(grabador, modelo)
 	modelo:SetAttribute("SpideyCargadoPor", grabador.Name)
 	grabador:SetAttribute("SpideyAgarrando", modelo.Name)
 	RE_Cuerpo:FireClient(grabador, "OK", modelo)
-	print("[Spidey V11.5] agarrado para todos: " .. modelo.Name .. " (por " .. grabador.Name .. ")")
+	print("[Spidey V11.6] agarrado para todos: " .. modelo.Name .. " (por " .. grabador.Name .. ")")
 end
 
 RE_Cuerpo.OnServerEvent:Connect(function(jugador, accion)
@@ -711,7 +732,7 @@ _G.SpideyV11Servidor = {
 	end,
 }
 
-print("[Spidey V11.5] cuerpo listo: agarre replicado por RE_Cuerpo; desmembrado eliminado")
+print("[Spidey V11.6] cuerpo listo: agarre replicado por RE_Cuerpo; desmembrado eliminado")
 
 print("[Spidey V11] Servidor listo; valida telaranas y difunde animaciones por RE_Anim")
 
@@ -1630,7 +1651,7 @@ local function reproducir(nombre, vol, pitch)
 end
 
 local function shiftPulsado()
-	-- V11.5: trepar con X (antes Shift).
+	-- V11.6: trepar con X (antes Shift).
 	return UIS:IsKeyDown(Enum.KeyCode.X)
 end
 
@@ -2263,7 +2284,7 @@ end
 -- BUCLE PRINCIPAL
 -----------------------------------------------------------------
 local agarrado = nil -- V11: victima que estas cargando (modo local)
-local cargandoRemoto = false -- V11.5: el servidor confirma que cargas a alguien
+local cargandoRemoto = false -- V11.6: el servidor confirma que cargas a alguien
 local victimaRemota = nil
 local function bucle(dt)
 	if not hrp or not hum then return end
@@ -2753,7 +2774,7 @@ end
 
 RunService.Heartbeat:Connect(bucle)
 -----------------------------------------------------------------
--- V11.5 · AGARRE (Ctrl+G), LOCK (Q) y ESP (J)
+-- V11.6 · AGARRE (Ctrl+G), LOCK (Q) y ESP (J)
 -- DOS MODOS:
 --  * CON SERVIDOR (tu juego, con SpideyV11 en ServerScriptService):
 --    el servidor mueve a la victima de verdad. Lo ven TODOS los
@@ -3049,10 +3070,10 @@ function V11.AlternarESP()
 		for _, p in ipairs(Players:GetPlayers()) do
 			aplicarESPPJugador(p)
 		end
-		print("[Spidey V11.5] ESP ACTIVADO: contorno blanco + nombres (atraviesa paredes)")
+		print("[Spidey V11.6] ESP ACTIVADO: contorno blanco + nombres (atraviesa paredes)")
 		mostrarHUD("ESP ACTIVADO (J para apagar)")
 	else
-		print("[Spidey V11.5] ESP DESACTIVADO")
+		print("[Spidey V11.6] ESP DESACTIVADO")
 		mostrarHUD("ESP DESACTIVADO")
 	end
 	task.delay(2, function()
@@ -3102,7 +3123,7 @@ Players.PlayerRemoving:Connect(function(p)
 end)
 
 -----------------------------------------------------------------
--- V11.5 · LOCK (Q): contorno y linea EN CUALQUIER JUEGO.
+-- V11.6 · LOCK (Q): contorno y linea EN CUALQUIER JUEGO.
 -- Pones el mouse sobre una persona, pulsas Q y:
 --   * se le pone un contorno blanco a ella y a ti;
 --   * una linea blanca une a los dos (dice donde esta);
@@ -3195,14 +3216,33 @@ local function crearLineaLock(modelo, c)
 	return beam, at1, at2
 end
 
--- Punto al que apuntar: CABEZA primero (el usuario pidio cabeza o
--- torso); cae al torso si no tiene cabeza visible.
+-- Punto al que apuntar: CABEZA primero; con ESCOPETA, TORSO (objetivo
+-- grande: la dispersion del juego reparte perdigones y casi todos
+-- impactan). Cae a otras partes si la primera no existe.
+local function esArmaEscopetaCliente()
+	if not char then return false end
+	local t = char:FindFirstChildOfClass("Tool")
+	if not t then return false end
+	local n = string.lower(t.Name)
+	return string.find(n, "shotgun", 1, true) ~= nil
+		or string.find(n, "double-barrel", 1, true) ~= nil
+		or string.find(n, "escopeta", 1, true) ~= nil
+end
+
 local function puntoLockCliente(modelo)
 	if not modelo or not modelo.Parent then return nil end
-	local p = modelo:FindFirstChild("Head")
-		or modelo:FindFirstChild("UpperTorso")
-		or modelo:FindFirstChild("Torso")
-		or modelo:FindFirstChild("HumanoidRootPart")
+	local p
+	if esArmaEscopetaCliente() then
+		p = modelo:FindFirstChild("UpperTorso")
+			or modelo:FindFirstChild("Torso")
+			or modelo:FindFirstChild("HumanoidRootPart")
+			or modelo:FindFirstChild("Head")
+	else
+		p = modelo:FindFirstChild("Head")
+			or modelo:FindFirstChild("UpperTorso")
+			or modelo:FindFirstChild("Torso")
+			or modelo:FindFirstChild("HumanoidRootPart")
+	end
 	return p and p.Position or nil
 end
 
@@ -3211,7 +3251,15 @@ end
 -- donde apunta el mouse; el servidor lo copia sin validar.
 local function resolverRemotoDH()
 	local mr = RS:FindFirstChild("MainRemotes")
-	return mr and mr:FindFirstChild("MainRemoteEvent") or nil
+	local directo = mr and mr:FindFirstChild("MainRemoteEvent")
+	if directo and directo:IsA("RemoteEvent") then return directo end
+	-- Algunos clones mueven el remoto: buscarlo por nombre en RS.
+	for _, d in ipairs(RS:GetDescendants()) do
+		if d:IsA("RemoteEvent") and d.Name == "MainRemoteEvent" then
+			return d
+		end
+	end
+	return nil
 end
 
 local function modeloBajoMouseLock()
@@ -3255,6 +3303,7 @@ local function bloquearModeloLock(modelo)
 
 	desbloquearLock(true)
 	bloqueado = { modelo = modelo, char = char, autoRotate = hum and hum.AutoRotate }
+	local b = bloqueado
 	-- Visuales SIEMPRE, en cualquier juego (Da Hood incluido):
 	-- Highlight y Beam creados en TU cliente; nadie mas los ve.
 	hlElLock = crearHighlightLock(modelo)
@@ -3274,10 +3323,12 @@ local function bloquearModeloLock(modelo)
 	-- en un Heartbeat manda MainRemoteEvent("DEAHOODMOUSEPOSx3^3",
 	-- Mouse.Hit.p) y el servidor lo copia a MousePos SIN validar
 	-- (comprobado en el Helper del juego). Mientras lockeamos,
-	-- mandamos nosotros ese MISMO remoto con la CABEZA del objetivo.
+	-- mandamos nosotros ese MISMO remoto con la CABEZA del objetivo
+	-- (o el TORSO si hay escopeta equipada).
 	-- Nuestra conexion al Heartbeat se crea DESPUES que la del
 	-- juego, asi que nuestro valor es el ULTIMO en escribirse en
-	-- cada frame: al disparar, la bala sale hacia el objetivo.
+	-- cada frame. Ademas mandamos uno diferido: si el juego usa
+	-- task.defer, el nuestro queda aun mas atras y gana igual.
 	b.enviarApuntado = nil
 	b.conexApuntado = nil
 	if sinServidor then
@@ -3292,12 +3343,16 @@ local function bloquearModeloLock(modelo)
 				end
 			end
 			b.enviarApuntado = enviar
+			local function enviarSiSigue()
+				if bloqueado == b then enviar() end
+			end
 			b.conexApuntado = {
-				RunService.RenderStepped:Connect(function()
-					if bloqueado == b then enviar() end
-				end),
+				RunService.RenderStepped:Connect(enviarSiSigue),
 				RunService.Heartbeat:Connect(function()
-					if bloqueado == b then enviar() end
+					enviarSiSigue()
+					-- Ultimo paquete del frame: le gana incluso a un
+					-- envio diferido (task.defer) del propio juego.
+					task.defer(enviarSiSigue)
 				end),
 			}
 			enviar()
@@ -3318,7 +3373,7 @@ local function bloquearModeloLock(modelo)
 	elseif b.enviarApuntado then
 		modo = "apuntado remoto"
 	end
-	print("[Spidey V11.5] lock: " .. nombre .. " (" .. modo .. ")")
+	print("[Spidey V11.6] lock: " .. nombre .. " (" .. modo .. ")")
 	return true
 end
 
@@ -3422,7 +3477,7 @@ local function soltarAgarre(motivo)
 	-- Si el ESP estaba encendido, se le vuelve a poner al cuerpo real
 	-- (al agarrarlo se lo habia quitado para no delatar el cuerpo oculto).
 	if a.jugador and espActivo then aplicarESPPJugador(a.jugador) end
-	print("[Spidey V11.5] agarre soltado (" .. tostring(motivo or "manual") .. ")")
+	print("[Spidey V11.6] agarre soltado (" .. tostring(motivo or "manual") .. ")")
 	mostrarHUD(nil)
 end
 
@@ -3468,7 +3523,7 @@ function V11.Agarrar()
 		return true
 	end
 	if not char or not hrp or not hum or hum.Health <= 0 then
-		print("[Spidey V11.5] no puedes agarrar sin personaje vivo")
+		print("[Spidey V11.6] no puedes agarrar sin personaje vivo")
 		return false
 	end
 	if agarrado then
@@ -3477,7 +3532,7 @@ function V11.Agarrar()
 	end
 	local modelo = buscarCuerpo()
 	if not modelo then
-		print("[Spidey V11.5] no hay ningun cuerpo debajo/cerca (Ctrl+G)")
+		print("[Spidey V11.6] no hay ningun cuerpo debajo/cerca (Ctrl+G)")
 		return false
 	end
 
@@ -3486,7 +3541,7 @@ function V11.Agarrar()
 	-- El clon se crea ANTES de ocultar el real (si no, saldria invisible).
 	local clon = crearClon(modelo, delante)
 	if not clon then
-		print("[Spidey V11.5] no se pudo clonar la victima")
+		print("[Spidey V11.6] no se pudo clonar la victima")
 		return false
 	end
 	local oculto = ocultarModeloReal(modelo)
@@ -3502,7 +3557,7 @@ function V11.Agarrar()
 	end
 	clon.Parent = workspace
 	agarrado = a
-	print("[Spidey V11.5] agarrado de la pierna (local): " .. modelo.Name)
+	print("[Spidey V11.6] agarrado de la pierna (local): " .. modelo.Name)
 	mostrarHUD("CARGANDO: " .. modelo.Name .. "   |   G = soltar")
 	return true
 end
@@ -3576,7 +3631,7 @@ end
 
 -----------------------------------------------------------------
 -- Teclas: Ctrl+G agarrar / G soltar · Q lock · J ESP
--- Z ya no hace nada: el desmembrado se elimino en V11.5.
+-- Z ya no hace nada: el desmembrado se elimino en V11.6.
 -----------------------------------------------------------------
 UIS.InputBegan:Connect(function(input, gpe)
 	if UIS:GetFocusedTextBox() then return end
