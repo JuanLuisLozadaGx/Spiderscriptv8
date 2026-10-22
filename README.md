@@ -1,15 +1,21 @@
-# Spiderscript V11.3 🕷️
+# Spiderscript V11.4 🕷️
 
 Sistema **Spider-Man completo** (telaraña, física de péndulo, trepa, cámara,
 sonidos, GUI y animaciones A/B) **+ agarre, ESP y LOCK** en **un solo archivo
 combinado**: sirve como script de servidor y como LocalScript/executor.
 Se adapta solo con `RunService:IsServer()`.
 
-> **Novedades V11.3:**
-> - **LOCK (Q)** para el **dueño del juego**: contorno blanco en ti y en el
->   objetivo, línea blanca entre los dos, y **todas las armas de Da Hood
->   disparan al objetivo** aunque dispares al piso. Tu **cámara NO se mueve**;
->   tu personaje gira hacia el enemigo. Q otra vez lo quita.
+> **Novedades V11.4 (fix del lock):**
+> - **ARREGLADO:** en V11.3 el contorno blanco y la línea del lock **no salían
+>   en Da Hood ni en juegos ajenos**, porque estaban amarrados al script de
+>   servidor. Eso estaba mal: los visuales son de tu propia pantalla, así que
+>   ahora **salen en CUALQUIER juego**.
+> - **LOCK (Q):** contorno blanco en ti y en el objetivo + línea blanca entre
+>   los dos. Tu **cámara NO se mueve**; tu personaje gira hacia el enemigo.
+>   Q otra vez lo quita.
+> - El **apuntado de balas** (que lleguen al objetivo aunque dispares al piso)
+>   sigue siendo exclusivo de **tu juego siendo el dueño**: eso lo hace el
+>   servidor, y en un juego ajeno ningún executor puede hacerlo.
 > - **Trepar con X** (antes era Shift).
 > - **Z eliminado:** el desmembrado se quitó por pedido del dueño (no servía
 >   en Da Hood). Ya no existe ni la tecla ni el código.
@@ -27,7 +33,7 @@ Si tu ejecutor cachea la URL, usa la URL por commit:
 
 | Tecla | Qué hace |
 |---|---|
-| **Q** | **LOCK (solo el dueño):** pon el mouse sobre una persona y pulsa Q. Contorno blanco en ella y en ti + línea blanca entre los dos. **Con cualquier arma de Da Hood, las balas van al objetivo aunque dispares al piso.** Tu cámara no se mueve; tu personaje gira hacia el enemigo. Q otra vez lo quita (esté el mouse encima o no). Si no hay nadie bajo el mouse, no hace nada. **Sin lock, las balas van normales.** |
+| **Q** | **LOCK (funciona en cualquier juego):** pon el mouse sobre una persona y pulsa Q. Contorno blanco en ella y en ti + línea blanca entre los dos. Tu cámara no se mueve; tu personaje gira hacia el enemigo. Q otra vez lo quita (esté el mouse encima o no). Si no hay nadie bajo el mouse, no hace nada. **En tu juego siendo el dueño**, además, **las balas de cualquier arma van al objetivo aunque dispares al piso**; en Da Hood u otro juego ajeno el lock es **solo visual** (límite de Roblox). |
 | **Ctrl + G** | Agarra de la pierna al cuerpo o persona más cercana que esté debajo de ti. Quedas agachado y el cuerpo flota acostado delante de ti. **G** de nuevo lo suelta. |
 | **X + pared** | Trepar (antes era Shift). Shift queda libre. |
 | **J** | ESP: contorno **blanco** + **nombre de usuario** arriba de todos los jugadores, visible **a través de las paredes**. J otra vez lo apaga. |
@@ -35,15 +41,19 @@ Si tu ejecutor cachea la URL, usa la URL por commit:
 
 ## Cómo funciona el LOCK (importante)
 
-Las armas de Da Hood disparan hacia `Character.BodyEffects.MousePos` (un valor
-que el juego actualiza cada frame con la posición del mouse).
-
-- Cuando bloqueas con **Q**, el **servidor** mantiene ese valor apuntando al
-  torso del objetivo. Da igual dónde apuntes: la bala sale hacia él.
-- Solo puede activarlo el **dueño del place** (o el nombre/ID configurado en
-  `PROPIETARIOS_NOMBRES` / `PROPIETARIOS_IDS` dentro del script, tanto en la
-  mitad servidor como en la cliente). En **Da Hood real** el lock NO funciona:
-  no eres el dueño y no hay script de servidor. Es a propósito.
+- **Los visuales (contorno blanco + línea blanca) funcionan SIEMPRE**: son un
+  `Highlight` y un `Beam` creados en **tu propio cliente**. Da igual el juego:
+  Da Hood, cualquier otro, tu copia. Nadie más los ve, solo tú.
+- **El apuntado de balas es aparte.** Las armas de Da Hood disparan hacia
+  `Character.BodyEffects.MousePos` (un valor que el juego actualiza cada frame
+  con la posición del mouse). Cuando lockeas en **tu juego siendo el dueño**, el
+  **servidor** mantiene ese valor apuntando al torso del objetivo: da igual
+  dónde dispares, la bala sale hacia él.
+- En **Da Hood real u otro juego ajeno** ese valor lo controla el servidor del
+  juego, y ningún executor puede tocarlo: por eso ahí el lock es **solo visual**.
+  El HUD te avisa con `(aqui solo visual)`.
+- El permiso de apuntado se valida **en el servidor** (dueño del place, o
+  nombre/ID en `PROPIETARIOS_NOMBRES` / `PROPIETARIOS_IDS`; grupo → rango 250+).
 - El lock se suelta solo si el objetivo muere, respawnea o se va; también si
   tú mueres o respawneas.
 - Mientras lockeas, tu personaje gira hacia el objetivo (los demás ven que lo
@@ -147,7 +157,7 @@ ajenos (Da Hood incluido). Lo importante que se comprobó en vivo:
 > executor. También se comprobó que un executor **no puede** crear
 > `ServerScriptService` ni subir assets en runtime.
 
-Con eso claro, V11.3 mantiene las **3 capas** para que siempre se vea algo:
+Con eso claro, V11.4 mantiene las **3 capas** para que siempre se vea algo:
 
 | Capa | Qué usa | Dónde se ve |
 |------|---------|-------------|
