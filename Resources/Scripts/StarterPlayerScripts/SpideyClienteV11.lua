@@ -2438,6 +2438,10 @@ local function buscarCuerpo()
 		local horiz = Vector3.new(d.X, 0, d.Z).Magnitude
 		if horiz <= RANGO_AGARRE and d.Y <= 1.0 and d.Y >= -9 then
 			local puntaje = horiz + math.abs(d.Y + 2) * 0.35
+			-- prioriza personas reales sobre NPCs si hay varias opciones
+			if Players:GetPlayerFromCharacter(modelo) then
+				puntaje -= 0.8
+			end
 			if puntaje < mejorPuntaje then
 				mejor, mejorPuntaje = modelo, puntaje
 			end
