@@ -121,7 +121,7 @@ El control se suelta solo cuando:
 
 Esto funciona tanto en modo local como en modo servidor.
 
-## LOCK y ESP (sin cambios)
+## LOCK y ESP (sin tocar)
 
 **No se tocó el código del lock ni del ESP.** Siguen funcionando igual que en
 V11.9:
@@ -131,11 +131,6 @@ V11.9:
 - Las armas viejas siguen usando el remoto de Da Hood.
 - El ESP sigue siendo de cada cliente: J lo activa y J lo apaga.
 - La trepa con X y la telaraña tampoco se tocaron.
-
-En la prueba final de V12.0 se volvió a comprobar el **visual del lock**:
-2 `SpideyLock`, 1 `SpideyLockLinea`, HUD `LOCK: LockTest | Q = quitar`; al
-desbloquear quedaron 0 objetos y el HUD vacío. El resto del lock se mantiene de
-V11.9 y no se modificó.
 
 ## Dos modos
 
@@ -243,12 +238,6 @@ true`, `Health = 0.5` y el `HumanoidRootPart` anclado.
   - el servidor liberó solo;
   - consola: `control soltado (curado)` y `control remoto terminado (curado)`;
   - muñeco destruido, herido visible, cámara y HUD normales.
-
-### Lock visual (comprobación rápida, sin tocar el código)
-
-- 2 `Highlight` llamados `SpideyLock` + 1 `Beam` `SpideyLockLinea`.
-- HUD: `LOCK: LockTest | Q = quitar`.
-- Al desbloquear: 0 objetos `SpideyLock`/`SpideyLockLinea` y HUD vacío.
 
 **No se pudo probar con la herramienta de Studio:** dos jugadores reales a la
 vez, la tecla G física (`VirtualInputManager` está bloqueado desde este
